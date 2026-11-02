@@ -1,0 +1,5 @@
+language js
+
+JsElseClause() as $elseClause where {
+  register_diagnostic(span=$elseClause, message="Avoid else: use a guard clause with early return.")
+}

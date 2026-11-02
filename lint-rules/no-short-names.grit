@@ -1,0 +1,7 @@
+language js
+
+JsIdentifierBinding() as $binding where {
+  $binding <: r"^[A-Za-z_$][A-Za-z0-9_$]?$",
+  not $binding <: r"^id$",
+  register_diagnostic(span=$binding, message="Use a descriptive name (3+ characters).")
+}
