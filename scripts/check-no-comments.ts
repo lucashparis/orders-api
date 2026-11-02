@@ -1,11 +1,7 @@
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  commentMarkerForFile,
-  findLineComments,
-  findTypeScriptComments,
-} from "./comment-detection.ts";
+import { commentMarkerForFile, describeCommentViolations } from "./comment-detection.ts";
 
 const ROOTS = [
   "src",
@@ -34,20 +30,12 @@ async function collectFiles(path: string): Promise<string[]> {
   return (await Promise.all(nested)).flat();
 }
 
-async function findComments(filePath: string): Promise<string[]> {
-  const style = commentMarkerForFile(filePath);
-  if (style === null) {
-    return [];
-  }
-  const source = await readFile(filePath, "utf8");
-  return style === "typescript" ? findTypeScriptComments(source) : findLineComments(source, style);
-}
-
 async function main(): Promise<void> {
   const files = (await Promise.all(ROOTS.map(collectFiles))).flat().sort();
-  for (const filePath of files) {
-    for (const comment of await findComments(filePath)) {
-      console.log(`${filePath}: ${comment}`);
+  for (const filePath of files.filter((file) => commentMarkerForFile(file) !== null)) {
+    const source = await readFile(filePath, "utf8");
+    for (const line of describeCommentViolations(filePath, source)) {
+      console.log(line);
       process.exitCode = 1;
     }
   }
