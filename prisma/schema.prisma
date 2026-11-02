@@ -1,0 +1,58 @@
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  moduleFormat           = "esm"
+  generatedFileExtension = "ts"
+  importFileExtension    = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  email     String   @unique(map: "users_email_key") @db.VarChar(254)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  orders    Order[]
+
+  @@map("users")
+}
+
+model Product {
+  id         Int         @id @default(autoincrement())
+  name       String      @db.VarChar(100)
+  priceCents Int         @map("price_cents")
+  stock      Int
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  items      OrderItem[]
+
+  @@map("products")
+}
+
+model Order {
+  id         Int         @id @default(autoincrement())
+  userId     Int         @map("user_id")
+  totalCents Int         @map("total_cents")
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  user       User        @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  items      OrderItem[]
+
+  @@index([userId, id(sort: Desc)], map: "orders_user_id_id_idx")
+  @@map("orders")
+}
+
+model OrderItem {
+  id             Int     @id @default(autoincrement())
+  orderId        Int     @map("order_id")
+  productId      Int     @map("product_id")
+  quantity       Int
+  unitPriceCents Int     @map("unit_price_cents")
+  order          Order   @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  product        Product @relation(fields: [productId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([orderId, productId], map: "order_items_order_id_product_id_key")
+  @@index([productId], map: "order_items_product_id_idx")
+  @@map("order_items")
+}
