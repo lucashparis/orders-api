@@ -1,7 +1,7 @@
 # orders-api — Especificação de design
 
 - **Data:** 2026-11-02
-- **Status:** aguardando revisão
+- **Status:** aprovada
 - **Idioma:** documentos em pt-BR; código, SDL e mensagens de erro da API em inglês
 
 ## 1. Visão geral
@@ -293,7 +293,7 @@ type Mutation {
    `FOR NO KEY UPDATE` é o mesmo nível de bloqueio que o `UPDATE` de estoque adquire: bloqueia outros pedidos sobre a mesma linha sem bloquear verificações de chave estrangeira de outras transações. A ordenação por `id` elimina deadlocks entre pedidos com produtos em comum.
 5. **Produtos ausentes** → `ProductNotFoundError` listando todos os IDs ausentes.
 6. **Estoque insuficiente** → `InsufficientStockError` listando todos os itens em falta, com `requested` e `available`.
-7. **Total** = Σ `quantity × price_cents`, em inteiros. Acima de 2.147.483.647 → `OrderTotalLimitExceededError`.
+7. **Total** = Σ `quantity × price_cents`, em inteiros, somado item a item e interrompido assim que ultrapassa 2.147.483.647 → `OrderTotalLimitExceededError`. A interrupção evita que produtos intermediários passem de 2^53, onde `number` perde precisão.
 8. **Gravação:** baixa do estoque num único comando, depois inserção do pedido e dos itens com o `unit_price_cents` lido no passo 4.
    ```sql
    UPDATE products AS product
@@ -318,6 +318,19 @@ Qualquer erro esperado retornado nos passos 3 a 7 desfaz a transação antes de 
 ### 6.3 Limite conhecido e evolução
 
 Uma linha por produto concentra a disputa ("linha quente"): pedidos simultâneos do mesmo produto formam fila na mesma linha, e o primeiro recurso a se esgotar são as conexões do pool. A evolução documentada é a da Shopify (2026): estoque em tabela própria com um conjunto limitado de linhas por produto, reservadas com `FOR UPDATE SKIP LOCKED` e repostas por um processo separado.
+
+### 6.4 Limite do total e evolução
+
+O limite de 2.147.483.647 centavos (R$ 21.474.836,47) por valor é uma regra explícita do contrato: o pedido acima dele recebe `OrderTotalLimitExceededError` antes de qualquer escrita. O schema relacional de partida (`DECIMAL(10,2)`) tinha um limite equivalente em R$ 99.999.999,99, sem tratamento, e resultaria em `numeric field overflow` exposto como erro interno.
+
+Evolução, se o negócio exigir valores maiores:
+
+| Camada | Mudança |
+|---|---|
+| Banco | `INTEGER` → `BIGINT` nas colunas de centavos; em tabelas grandes, coluna nova + cópia + troca |
+| Prisma | `BIGINT` chega como `bigint`, exato |
+| API | `Int` do GraphQL é 32 bits por especificação: novo escalar serializado como string |
+| Compatibilidade | Novo campo (`totalAmountInCents`) e o antigo marcado com `@deprecated`, sem versionar a URL |
 
 ## 7. Validação (Zod)
 
