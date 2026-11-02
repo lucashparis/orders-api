@@ -42,13 +42,13 @@ Casos que a spec implica sem que nenhum teste os cubra diretamente. Cada um tem 
 
 - [ ] `npm run check` termina com sucesso.
 - [ ] Revisão do texto que será mesclado (`git diff main`): descreve o projeto por si só, sem referências a contextos externos.
-- [ ] Resumo para o usuário em pt-BR: o que foi entregue, justificativa de cada módulo em 3 a 5 linhas e tempo estimado × real.
+- [ ] Resumo para o usuário em pt-BR: o que foi entregue, justificativa de cada módulo em 3 a 5 linhas.
 - [ ] Após a aprovação do usuário: `git checkout main && git merge --no-ff <branch> --no-edit`.
 - [ ] Nada é enviado ao GitHub sem pedido explícito.
 
 ---
 
-## Etapa 1 — `chore/project-setup` (Haiku + Sonnet, 30–45 min)
+## Etapa 1 — `chore/project-setup` (Haiku + Sonnet)
 
 ### Tarefa 1.1: Toolchain e configuração (Haiku)
 
@@ -332,7 +332,7 @@ Se funcionar, a etapa 6 usa `node:24.22.2-alpine3.24` com `openssl`. Se falhar, 
 
 ---
 
-## Etapa 2 — `feat/app-skeleton` (Sonnet, 30–45 min)
+## Etapa 2 — `feat/app-skeleton` (Sonnet)
 
 ### Tarefa 2.1: Configuração, logger e infraestrutura HTTP
 
@@ -537,7 +537,7 @@ Testes:
 
 ---
 
-## Etapa 3 — `feat/users-products` (Sonnet, 45–60 min)
+## Etapa 3 — `feat/users-products` (Sonnet)
 
 ### Tarefa 3.1: Geração de tipos GraphQL e módulo de usuários
 
@@ -635,7 +635,7 @@ Expected: `{"status":"ok"}`. Abrir `http://localhost:3000/graphiql` mostra o pai
 
 ---
 
-## Etapa 4 — `feat/orders` (Opus, 60–90 min)
+## Etapa 4 — `feat/orders` (Opus)
 
 ### Tarefa 4.1: Regras puras do pedido e validação
 
@@ -773,7 +773,7 @@ Estoque inicial: 10 no primeiro teste; 100 para cada produto no segundo. `placeO
 
 ---
 
-## Etapa 5 — `feat/listing-loaders` (Sonnet + revisão Opus, 45–60 min)
+## Etapa 5 — `feat/listing-loaders` (Sonnet + revisão Opus)
 
 ### Tarefa 5.1: Pedidos do usuário como connection
 
@@ -843,7 +843,7 @@ it("keeps four queries when the number of users doubles", ...);
 
 ---
 
-## Etapa 6 — `feat/docker-demo` (Sonnet, 45–60 min)
+## Etapa 6 — `feat/docker-demo` (Sonnet)
 
 ### Tarefa 6.1: Desligamento seguro
 
@@ -927,7 +927,7 @@ Expected: nas duas execuções aparecem a linha de resumo da concorrência, uma 
 
 ---
 
-## Etapa 7 — `docs/readme` (Sonnet + revisão Opus, 20–30 min)
+## Etapa 7 — `docs/readme` (Sonnet + revisão Opus)
 
 ### Tarefa 7.1: README
 
