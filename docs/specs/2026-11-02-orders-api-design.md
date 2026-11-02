@@ -502,17 +502,15 @@ Seções: visão geral, como executar (Docker e local), comandos (`demo`, `test`
 
 Cada etapa é uma branch, com merge `--no-ff` na `main` quando funcional. Durante a etapa rodam os testes relacionados; no fechamento, `npm run check` completo e um resumo com a justificativa de cada módulo, para aprovação antes do merge. O Opus coordena e revisa; cada tarefa é executada pelo modelo indicado.
 
-| # | Branch | Conteúdo | Modelo | Estimativa |
-|---|---|---|---|---|
-| 1 | `chore/project-setup` | Dependências, tsconfig, Biome com plugins, verificação de comentários, scripts, `db`/`db-test`, schema Prisma, migration editada, validação do Prisma no Alpine | Haiku + Sonnet | 30–45 min |
-| 2 | `feat/app-skeleton` | Fastify + Mercurius, config, logger, infraestrutura de erros, `/health`, cursor, codegen | Sonnet | 30–45 min |
-| 3 | `feat/users-products` | Módulos de usuários e produtos com testes | Sonnet | 45–60 min |
-| 4 | `feat/orders` | Transação do pedido, catálogo de erros, testes de concorrência e deadlock | Opus | 60–90 min |
-| 5 | `feat/listing-loaders` | `User.orders`, loaders, teste de N+1, `queryDepth` | Sonnet + revisão Opus | 45–60 min |
-| 6 | `feat/docker-demo` | Dockerfile, Compose completo, demo, desligamento seguro | Sonnet | 45–60 min |
-| 7 | `docs/readme` | README | Sonnet + revisão Opus | 20–30 min |
-
-Estimativa total: 4h30 a 6h30 de execução, recalibrada após a etapa 1.
+| # | Branch | Conteúdo | Modelo |
+|---|---|---|---|
+| 1 | `chore/project-setup` | Dependências, tsconfig, Biome com plugins, verificação de comentários, scripts, `db`/`db-test`, schema Prisma, migration editada, validação do Prisma no Alpine | Haiku + Sonnet |
+| 2 | `feat/app-skeleton` | Fastify + Mercurius, config, logger, infraestrutura de erros, `/health`, cursor, `queryDepth` | Sonnet |
+| 3 | `feat/users-products` | Codegen, módulos de usuários e produtos com testes, ponto de entrada do servidor | Sonnet |
+| 4 | `feat/orders` | Transação do pedido, catálogo de erros, loaders de `Order.items` e `OrderItem.product`, testes de concorrência e deadlock | Opus |
+| 5 | `feat/listing-loaders` | `User.orders` em lote, teste de N+1 | Sonnet + revisão Opus |
+| 6 | `feat/docker-demo` | Dockerfile, Compose completo, demo, desligamento seguro | Sonnet |
+| 7 | `docs/readme` | README | Sonnet + revisão Opus |
 
 ## 18. Decisões e justificativas
 
