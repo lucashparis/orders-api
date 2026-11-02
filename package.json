@@ -1,0 +1,44 @@
+{
+  "name": "orders-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.22.2 <25" },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env --watch src/server.ts",
+    "start": "node src/server.ts",
+    "generate": "prisma generate",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "check:comments": "node --disable-warning=ExperimentalWarning scripts/check-no-comments.ts",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "db:migrate": "prisma migrate deploy",
+    "demo": "node scripts/demo.ts",
+    "check": "npm run generate && npm run typecheck && npm run lint && npm run check:comments && npm audit && npm test"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "fastify": "5.12.8",
+    "graphql": "17.0.2",
+    "mercurius": "16.12.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.4",
+    "@graphql-codegen/core": "6.2.2",
+    "@graphql-codegen/typescript": "6.1.2",
+    "@graphql-codegen/typescript-resolvers": "6.1.1",
+    "@types/node": "24.19.2",
+    "@vitest/coverage-v8": "5.1.0",
+    "acorn": "8.19.0",
+    "pino-pretty": "13.2.0",
+    "prisma": "7.10.1",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  },
+  "overrides": { "glob": "14.0.3", "minimatch": "11.0.4" },
+  "allowScripts": { "prisma@7.10.1": true, "@prisma/engines@7.10.1": true }
+}
