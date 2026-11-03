@@ -12,7 +12,7 @@ import { testEnvironment } from "../../helpers/test-environment.ts";
 
 const probeModule: GraphqlModule = {
   typeDefs: `
-    extend type Query { failUnexpectedly: String! rejectInput: String! root: ProbeNode! }
+    extend type Query { failUnexpectedly: String! rejectInput: String! fakeSyntaxError: String! root: ProbeNode! }
     extend type Mutation { probeMutation: Boolean }
     type ProbeNode { name: String! child: ProbeNode! }
   `,
@@ -20,6 +20,9 @@ const probeModule: GraphqlModule = {
     Query: {
       failUnexpectedly: () => {
         throw new Error("database password leaked");
+      },
+      fakeSyntaxError: () => {
+        throw new Error("Syntax Error: fake");
       },
       rejectInput: () => {
         throw createBadUserInputError("first must be between 1 and 100");
@@ -138,6 +141,18 @@ describe("error masking", () => {
       extensions: { code: "INTERNAL_SERVER_ERROR", requestId: "req-test-123" },
     });
     expect(JSON.stringify(result)).not.toContain("password");
+    expect(result.headers["x-request-id"]).toBe("req-test-123");
+  });
+
+  test("masks resolver errors whose message imitates a syntax error", async () => {
+    const app = await createApp();
+    const result = await executeGraphql(app, "{ fakeSyntaxError }", undefined, {
+      "x-request-id": "req-test-456",
+    });
+    expect(result.errors[0]).toEqual({
+      message: "Internal server error",
+      extensions: { code: "INTERNAL_SERVER_ERROR", requestId: "req-test-456" },
+    });
   });
 
   test("keeps bad user input errors", async () => {
@@ -153,6 +168,15 @@ describe("request validation", () => {
     const app = await createApp();
     const result = await executeGraphql(app, "{ root {");
     expect(result.errors[0]?.extensions?.code).toBe("GRAPHQL_PARSE_FAILED");
+  });
+
+  test("sets the request id header on parse failure responses", async () => {
+    const app = await createApp();
+    const result = await executeGraphql(app, "{ root {", undefined, {
+      "x-request-id": "req-parse-1",
+    });
+    expect(result.statusCode).toBe(400);
+    expect(result.headers["x-request-id"]).toBe("req-parse-1");
   });
 
   test("reports unknown fields as validation failures", async () => {

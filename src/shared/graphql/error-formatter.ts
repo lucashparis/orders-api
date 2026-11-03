@@ -22,43 +22,71 @@ function maskError(requestId: string): GraphQLFormattedError {
   };
 }
 
-function publishError(error: GraphQLFormattedError, requestId: string): GraphQLFormattedError {
-  if (error.message.startsWith(syntaxErrorPrefix)) {
-    return withCode(error, "GRAPHQL_PARSE_FAILED");
+type PublicCode =
+  | "GRAPHQL_PARSE_FAILED"
+  | "GRAPHQL_VALIDATION_FAILED"
+  | "BAD_USER_INPUT"
+  | "INTERNAL_SERVER_ERROR";
+
+function classifyError(error: GraphQLFormattedError): PublicCode {
+  const isFieldError = error.path !== undefined;
+  if (!isFieldError && error.message.startsWith(syntaxErrorPrefix)) {
+    return "GRAPHQL_PARSE_FAILED";
   }
   if (error.extensions?.code === "BAD_USER_INPUT") {
-    return error;
+    return "BAD_USER_INPUT";
   }
-  if (error.path === undefined) {
-    return withCode(error, "GRAPHQL_VALIDATION_FAILED");
-  }
-  return maskError(requestId);
+  return isFieldError ? "INTERNAL_SERVER_ERROR" : "GRAPHQL_VALIDATION_FAILED";
 }
 
-function isUnexpected(error: { extensions?: Record<string, unknown>; path?: unknown }): boolean {
-  return error.path !== undefined && error.extensions?.code !== "BAD_USER_INPUT";
+function publishError(
+  error: GraphQLFormattedError,
+  code: PublicCode,
+  requestId: string,
+): GraphQLFormattedError {
+  switch (code) {
+    case "BAD_USER_INPUT":
+      return error;
+    case "INTERNAL_SERVER_ERROR":
+      return maskError(requestId);
+    case "GRAPHQL_PARSE_FAILED":
+    case "GRAPHQL_VALIDATION_FAILED":
+      return withCode(error, code);
+  }
 }
 
-function logUnexpectedErrors(execution: FailedExecution, context: MercuriusContext): void {
-  for (const error of execution.errors) {
-    if (isUnexpected(error)) {
-      context.reply.request.log.error({ err: error.originalError ?? error }, error.message);
-    }
+function findOriginal(execution: FailedExecution, error: GraphQLFormattedError): Error | undefined {
+  const original = execution.errors.find(
+    (candidate) =>
+      candidate.message === error.message && String(candidate.path) === String(error.path),
+  );
+  return original?.originalError ?? original;
+}
+
+function processError(
+  execution: FailedExecution,
+  context: MercuriusContext,
+  error: GraphQLFormattedError,
+): GraphQLFormattedError {
+  const code = classifyError(error);
+  if (code === "INTERNAL_SERVER_ERROR") {
+    const failure = findOriginal(execution, error) ?? error;
+    context.reply.request.log.error({ err: failure }, error.message);
   }
+  return publishError(error, code, context.reply.request.id);
 }
 
 export function formatGraphqlErrors(
   execution: FailedExecution,
   context: MercuriusContext,
 ): FormattedResponse {
-  logUnexpectedErrors(execution, context);
   const formatted = mercurius.defaultErrorFormatter(execution, context);
-  const requestId = context.reply.request.id;
+  const errors = formatted.response.errors ?? [];
   return {
     statusCode: formatted.statusCode,
     response: {
       data: formatted.response.data ?? null,
-      errors: (formatted.response.errors ?? []).map((error) => publishError(error, requestId)),
+      errors: errors.map((error) => processError(execution, context, error)),
     },
   };
 }
