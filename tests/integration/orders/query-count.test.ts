@@ -101,12 +101,26 @@ async function seedUsersWithOrders(database: PrismaClient, shape: Shape): Promis
   }
 }
 
+function expectSeededTree(data: NestedListingData | null, shape: Shape): void {
+  const users = data?.users.edges ?? [];
+  expect(users).toHaveLength(shape.users);
+  for (const user of users) {
+    expect(user.node.orders.edges).toHaveLength(shape.ordersPerUser);
+    for (const order of user.node.orders.edges) {
+      expect(order.node.items).toHaveLength(shape.itemsPerOrder);
+      for (const item of order.node.items) {
+        expect(item.product.id).toBeDefined();
+      }
+    }
+  }
+}
+
 async function listNestedAndCountQueries(shape: Shape): Promise<number> {
   await seedUsersWithOrders(prisma, shape);
   resetQueryCount();
   const response = await executeGraphql<NestedListingData>(app, usersWithOrdersAndProductsQuery);
   expect(response.errors).toEqual([]);
-  expect(response.data?.users.edges).toHaveLength(shape.users);
+  expectSeededTree(response.data, shape);
   return readQueryCount();
 }
 
