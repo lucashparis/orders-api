@@ -96,13 +96,15 @@ Portas do host configuráveis por variáveis de ambiente (ou por um arquivo `.en
 API_HOST_PORT=3100 DB_HOST_PORT=5440 docker compose up -d --build
 ```
 
-Se `DB_HOST_PORT` ou `DB_TEST_HOST_PORT` forem alteradas e a aplicação for executada localmente, `DATABASE_URL` e `TEST_DATABASE_URL` no `.env` devem usar as mesmas portas. Dentro da rede do Compose os serviços sempre usam a porta 5432 do contêiner, então os serviços `api`, `migrate`, `demo` e `test` não são afetados.
+Ao alterar `API_HOST_PORT`, os endereços com `localhost:3000` usados nesta documentação e nos exemplos passam a usar a nova porta.
 
-Para parar e para remover tudo, incluindo os dados:
+Se `DB_HOST_PORT` ou `DB_TEST_HOST_PORT` forem alteradas e a aplicação for executada localmente, `DATABASE_URL` no `.env` deve usar a mesma porta de `DB_HOST_PORT`, e `TEST_DATABASE_URL` deve ser exportada no shell com a porta de `DB_TEST_HOST_PORT` (veja [Como executar localmente](#como-executar-localmente)). Dentro da rede do Compose os serviços sempre usam a porta 5432 do contêiner, então os serviços `api`, `migrate`, `demo` e `test` não são afetados.
+
+Para parar todos os serviços, ou para removê-los junto com os dados (o perfil `tools` inclui `db-test`, `test` e `demo`):
 
 ```bash
-docker compose stop
-docker compose down -v
+docker compose --profile tools stop
+docker compose --profile tools down -v
 ```
 
 ### Estrutura do Compose
@@ -116,13 +118,14 @@ docker compose down -v
 | `test` | etapa `verify` | `npm test` contra `db-test` (perfil `tools`) |
 | `demo` | etapa `verify` | `npm run demo` contra `http://api:3000/graphql` (perfil `tools`) |
 
-O Dockerfile tem três etapas sobre `node:24.22.2-alpine3.24`: `deps` (`npm ci`), `verify` (gera o cliente Prisma e os tipos GraphQL e roda `tsc --noEmit`; a imagem não é construída se os tipos não batem) e `runtime` (apenas dependências de produção, `src/` e `prisma/`, executando como usuário `node`). A imagem de runtime tem cerca de 413 MB.
+O Dockerfile tem quatro etapas sobre `node:24.22.2-alpine3.24`: `base` (com `openssl`, exigido pelo Prisma), `deps` (`npm ci`), `verify` (gera o cliente Prisma e os tipos GraphQL e roda `tsc --noEmit`; a imagem não é construída se os tipos não batem) e `runtime` (apenas dependências de produção, `src/` e `prisma/`, executando como usuário `node`). A imagem de runtime tem cerca de 413 MB.
 
 ## Como executar localmente
 
 ```bash
 npm ci
 cp .env.example .env
+npm run generate
 docker compose up -d db db-test
 npm run db:migrate
 npm run dev
@@ -134,9 +137,11 @@ Em outro terminal, com a API no ar, `npm run demo` executa a demonstração cont
 npm test
 ```
 
-`npm test` usa o banco `db-test` (porta 5433 por padrão, ou `TEST_DATABASE_URL`). O `globalSetup` aplica as migrations nesse banco, e os arquivos de integração rodam em sequência.
+`npm run generate` cria `src/generated/` (cliente Prisma e tipos GraphQL), que não é versionado e é necessário para `npm run dev`, `npm test` e `npm run typecheck`. O comando lê `DATABASE_URL` do `.env`, por isso vem depois da cópia do arquivo. Repita-o após alterar o SDL (`.graphql`) ou `prisma/schema.prisma`.
 
-O Node carrega o `.env` com `--env-file-if-exists=.env`, e o `prisma.config.ts` usa `process.loadEnvFile`; não há dependência extra para isso.
+`npm test` usa o banco `db-test` (porta 5433 por padrão). O `globalSetup` aplica as migrations nesse banco, e os arquivos de integração rodam em sequência.
+
+O `.env` é lido apenas por `npm run dev` (`node --env-file-if-exists=.env`) e pelos comandos do Prisma (`npm run generate`, `npm run db:migrate`), cujo `prisma.config.ts` usa `process.loadEnvFile`; não há dependência extra para isso. `npm test` e `npm run check` não leem o `.env`: para apontar os testes para outra porta, exporte `TEST_DATABASE_URL` no shell antes de executá-los, por exemplo `TEST_DATABASE_URL=postgresql://orders:orders@localhost:5440/orders_test npm test`.
 
 ### Variáveis de ambiente
 
@@ -150,9 +155,16 @@ A API valida as variáveis com Zod na inicialização e não sobe se alguma for 
 | `LOG_LEVEL` | `info` | Nível do Pino |
 | `NODE_ENV` | `production` | `development` ativa o `pino-pretty` |
 | `GRAPHIQL_ENABLED` | `false` | `true` habilita o GraphiQL em `/graphiql` |
-| `TEST_DATABASE_URL` | `postgresql://orders:orders@localhost:5433/orders_test` | Banco usado pelos testes |
 
-O `.env.example` também documenta `DB_HOST_PORT` e `DB_TEST_HOST_PORT`, lidas pelo Compose.
+Variáveis usadas fora da API:
+
+| Variável | Padrão | Uso |
+|---|---|---|
+| `TEST_DATABASE_URL` | `postgresql://orders:orders@localhost:5433/orders_test` | Banco usado apenas pelos testes; lida do shell, não do `.env`, e não validada pela API |
+| `API_URL` | `http://localhost:3000/graphql` | Endereço da API usado por `npm run demo` |
+| `API_HOST_PORT`, `DB_HOST_PORT`, `DB_TEST_HOST_PORT` | `3000`, `5432`, `5433` | Portas do host, lidas pelo Compose |
+
+O `.env.example` documenta `TEST_DATABASE_URL`, `DB_HOST_PORT` e `DB_TEST_HOST_PORT` apenas como referência.
 
 ## Comandos
 
@@ -160,7 +172,7 @@ O `.env.example` também documenta `DB_HOST_PORT` e `DB_TEST_HOST_PORT`, lidas p
 |---|---|
 | `npm run dev` | Servidor com `--watch` e leitura do `.env` |
 | `npm start` | `node src/server.ts` (o mesmo código de produção) |
-| `npm run generate` | `prisma generate` e geração dos tipos GraphQL (`src/generated/`, fora do Git) |
+| `npm run generate` | `prisma generate` e geração dos tipos GraphQL (`src/generated/`, fora do Git); exige `DATABASE_URL` no `.env` ou no ambiente |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | `biome check .` |
 | `npm run format` | `biome format --write .` |
@@ -418,7 +430,7 @@ query {
 }
 ```
 
-Os pedidos de cada usuário vêm do mais recente para o mais antigo. Os cursores são opacos (`base64url("v1:<id>")`) e devem ser usados como recebidos. Em `users` e `products`, `first` aceita de 1 a 100 (padrão 20). A profundidade máxima de consulta é 10.
+Os pedidos de cada usuário vêm do mais recente para o mais antigo. Os cursores são opacos (`base64url("v1:<id>")`) e devem ser usados como recebidos. Em `users`, `products` e `User.orders`, `first` aceita de 1 a 100 (padrão 20). A profundidade máxima de consulta é 10.
 
 ### Health check
 
@@ -457,16 +469,16 @@ Retorna `200 {"status":"ok"}` quando o processo está vivo e o banco responde a 
 
 ### Concorrência na emissão do pedido
 
-`createOrder` executa em uma transação interativa (`READ COMMITTED`):
+`createOrder` valida o input antes de abrir a transação; o restante executa em uma transação interativa (`READ COMMITTED`):
 
-1. Valida o input (Zod).
-2. Verifica se o usuário existe.
+1. Valida o input (Zod); input inválido retorna `ValidationError` sem abrir transação.
+2. Abre a transação e verifica se o usuário existe.
 3. Bloqueia os produtos do pedido em ordem de `id` com `FOR NO KEY UPDATE`.
 4. Retorna `ProductNotFoundError` com todos os IDs ausentes, ou `InsufficientStockError` com todos os itens em falta.
 5. Calcula o total em inteiros, interrompendo a soma ao ultrapassar o limite de 2.147.483.647 centavos.
 6. Baixa o estoque num único `UPDATE ... FROM unnest(...)` e grava o pedido e os itens com o preço lido sob bloqueio.
 
-Qualquer erro esperado dos passos 2 a 5 desfaz a transação antes de qualquer escrita. Listagens usam MVCC e não esperam pelos bloqueios de escrita.
+Qualquer erro esperado dos passos 2 a 5 encerra a transação sem nenhuma escrita. Listagens usam MVCC e não esperam pelos bloqueios de escrita.
 
 ### Paginação e N+1
 
@@ -516,4 +528,4 @@ Qualquer erro esperado dos passos 2 a 5 desfaz a transação antes de qualquer e
 
 - **Consulta por usuário.** Uma query `user(id)` tornaria o cursor de `User.orders` independente de outros usuários na mesma página.
 - **Observabilidade.** Incluir o identificador da requisição nos eventos de negócio (`order.created`, `order.rejected`) e silenciar os logs das sondagens de `/health`.
-- **Recursos de produto:** autenticação e autorização, pagamento, reserva de estoque com expiração, status e cancelamento de pedido, múltiplas moedas, `totalCount` nas listagens, rate limiting e pipeline de CI.
+- **Itens fora do escopo.** Os recursos listados como fora do escopo em [Limites conhecidos](#limites-conhecidos) são os candidatos seguintes.
