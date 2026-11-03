@@ -16,6 +16,8 @@ type DemoCatalog = {
   expensiveProduct: CreatedProduct;
 };
 
+type ListingScan = { users: unknown[]; pages: number; stoppedAtCap: boolean };
+
 type OrderLine = { productId: string; quantity: number };
 
 type ErrorExample = {
@@ -412,7 +414,7 @@ function pickRunUsers(page: unknown, emails: Set<string>): unknown[] {
   return nodes.filter((node) => emails.has(readText(node, "email")));
 }
 
-async function collectRunUsers(emails: Set<string>): Promise<{ users: unknown[]; pages: number }> {
+async function collectRunUsers(emails: Set<string>): Promise<ListingScan> {
   const users: unknown[] = [];
   let cursor: string | null = null;
   let hasNextPage = true;
@@ -430,22 +432,32 @@ async function collectRunUsers(emails: Set<string>): Promise<{ users: unknown[];
     cursor = hasNextPage ? readText(pageInfo, "endCursor") : null;
     pages += 1;
   }
-  return { users, pages };
+  return { users, pages, stoppedAtCap: hasNextPage && users.length < emails.size };
+}
+
+function describeShortfall(found: number, expected: number, stoppedAtCap: boolean): string | null {
+  if (found >= expected) {
+    return null;
+  }
+  const counts = `${found} de ${expected} usuários desta execução foram encontrados`;
+  if (stoppedAtCap) {
+    return `A varredura parou no limite de ${MAXIMUM_LISTING_PAGES} páginas: ${counts}.`;
+  }
+  return `A listagem terminou antes de encontrar todos: ${counts}.`;
 }
 
 async function showUsersWithOrders(catalog: DemoCatalog): Promise<void> {
   console.log("\n=== 4. Listagem: usuários, pedidos, itens e produtos ===");
   console.log(
-    `A listagem é paginada: ${USERS_PAGE_SIZE} usuários por página e ${ORDERS_PAGE_SIZE} pedidos por usuário. A demonstração percorre as páginas com pageInfo.endCursor (argumento after) até a última e mostra abaixo apenas os usuários criados nesta execução, com seus pedidos, itens e produtos.`,
+    `A listagem é paginada: ${USERS_PAGE_SIZE} usuários por página e ${ORDERS_PAGE_SIZE} pedidos por usuário. A demonstração percorre as páginas com pageInfo.endCursor (argumento after) até a última (no máximo ${MAXIMUM_LISTING_PAGES} páginas) e mostra abaixo apenas os usuários criados nesta execução, com seus pedidos, itens e produtos.`,
   );
   console.log(USERS_WITH_ORDERS_DOCUMENT);
   const emails = new Set(catalog.users.map((user) => user.email));
-  const { users, pages } = await collectRunUsers(emails);
+  const { users, pages, stoppedAtCap } = await collectRunUsers(emails);
   console.log(`Páginas percorridas: ${pages}. Usuários desta execução: ${users.length}.`);
-  if (users.length < emails.size) {
-    console.log(
-      `A varredura parou no limite de ${MAXIMUM_LISTING_PAGES} páginas: ${users.length} de ${emails.size} usuários desta execução foram encontrados.`,
-    );
+  const shortfall = describeShortfall(users.length, emails.size, stoppedAtCap);
+  if (shortfall !== null) {
+    console.log(shortfall);
   }
   console.log(toPrettyJson({ data: { users } }));
 }
