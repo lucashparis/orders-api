@@ -5,9 +5,10 @@ import { loadOrderItems } from "../../../src/modules/orders/orders.loaders.ts";
 import { findItemsByOrderIds } from "../../../src/modules/orders/orders.repository.ts";
 import { createOrdersService } from "../../../src/modules/orders/orders.service.ts";
 import type { OrderRecord } from "../../../src/modules/orders/orders.types.ts";
-import { buildTestApp } from "../../helpers/app.ts";
+import { buildLoggingTestApp, buildTestApp } from "../../helpers/app.ts";
 import { createTestPrismaClient, truncateAllTables } from "../../helpers/database.ts";
 import { executeGraphql } from "../../helpers/graphql.ts";
+import { createLogCapture, findEventEntries } from "../../helpers/log-capture.ts";
 
 const createOrderMutation = `
   mutation CreateOrder($input: CreateOrderInput!) {
@@ -141,6 +142,14 @@ async function captureLogLines(
 
 function parseLogLines(lines: string[]): unknown[] {
   return lines.map((line): unknown => JSON.parse(line));
+}
+
+async function placeOrderWithRequestId(
+  server: FastifyInstance,
+  requestId: string,
+  input: ReturnType<typeof toOrderInput>,
+): Promise<void> {
+  await executeGraphql(server, createOrderMutation, { input }, { "x-request-id": requestId });
 }
 
 describe("createOrder", () => {
@@ -340,6 +349,28 @@ describe("createOrder logging", () => {
     expect(parseLogLines(lines)).toEqual([
       expect.objectContaining({ level: 30, event: "order.rejected", code: "USER_NOT_FOUND" }),
       expect.objectContaining({ level: 30, event: "order.rejected", code: "BAD_USER_INPUT" }),
+    ]);
+  });
+});
+
+describe("createOrder event request id", () => {
+  test("tags order events with the id of the request that placed the order", async () => {
+    const capture = createLogCapture();
+    const loggingApp = await buildLoggingTestApp(prisma, capture);
+    const userId = await createUserFixture();
+    const keyboardId = await createProductFixture("Keyboard", 1990, 1);
+    const input = toOrderInput(userId, [{ productId: keyboardId, quantity: 1 }]);
+    try {
+      await placeOrderWithRequestId(loggingApp, "req-order-created", input);
+      await placeOrderWithRequestId(loggingApp, "req-order-rejected", input);
+    } finally {
+      await loggingApp.close();
+    }
+    expect(findEventEntries(capture, "order.created")).toEqual([
+      expect.objectContaining({ reqId: "req-order-created", orderId: 1 }),
+    ]);
+    expect(findEventEntries(capture, "order.rejected")).toEqual([
+      expect.objectContaining({ reqId: "req-order-rejected", code: "INSUFFICIENT_STOCK" }),
     ]);
   });
 });

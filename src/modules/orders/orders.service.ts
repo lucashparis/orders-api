@@ -27,7 +27,7 @@ import type { CreateOrderOutcome, LockedProduct, OrderRecord } from "./orders.ty
 export const orderTransactionOptions = { maxWait: 5_000, timeout: 10_000 };
 
 export type OrdersService = {
-  createOrder(input: unknown): Promise<CreateOrderOutcome>;
+  createOrder(input: unknown, logger?: FastifyBaseLogger): Promise<CreateOrderOutcome>;
 };
 
 type OrdersServiceDependencies = { prisma: PrismaClient; logger: FastifyBaseLogger };
@@ -116,9 +116,9 @@ function logCreation(logger: FastifyBaseLogger, order: OrderRecord, itemsCount: 
 }
 
 export function createOrdersService(dependencies: OrdersServiceDependencies): OrdersService {
-  const { prisma, logger } = dependencies;
+  const { prisma } = dependencies;
   return {
-    async createOrder(input) {
+    async createOrder(input, logger = dependencies.logger) {
       const parsed = createOrderInputSchema.safeParse(input);
       if (!parsed.success) {
         const failure = toValidationFailure(parsed.error);
