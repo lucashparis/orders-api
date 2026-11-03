@@ -42,8 +42,8 @@ Casos que a spec implica sem que nenhum teste os cubra diretamente. Cada um tem 
 
 - [ ] `npm run check` termina com sucesso.
 - [ ] Revisão do texto que será mesclado (`git diff main`): descreve o projeto por si só, sem referências a contextos externos.
-- [ ] Resumo para o usuário em pt-BR: o que foi entregue, justificativa de cada módulo em 3 a 5 linhas.
-- [ ] Após a aprovação do usuário: `git checkout main && git merge --no-ff <branch> --no-edit`.
+- [ ] Resumo da etapa para aprovação do merge.
+- [ ] Após a aprovação: `git checkout main && git merge --no-ff <branch> --no-edit`.
 - [ ] Nada é enviado ao GitHub sem pedido explícito.
 
 ---
@@ -943,4 +943,4 @@ Run: `docker compose down -v && docker compose up -d --build && docker compose r
 Expected: tudo com sucesso.
 
 - [ ] **Passo 5: Commit** `docs: add project readme`
-- [ ] **Passo 6: Fechamento da etapa 7** (procedimento comum) e demonstração do GraphiQL ao usuário (painel Docs com as descrições).
+- [ ] **Passo 6: Fechamento da etapa 7** (procedimento comum) e verificação do painel Docs do GraphiQL com as descrições.
