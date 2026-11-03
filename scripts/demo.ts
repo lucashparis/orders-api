@@ -33,6 +33,7 @@ const CONCURRENT_ORDERS = 50;
 const LIMITED_STOCK = 10;
 const USERS_PAGE_SIZE = 100;
 const ORDERS_PAGE_SIZE = 3;
+const MAXIMUM_LISTING_PAGES = 50;
 const CURRENCY_FORMATTER = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const USER_NAMES = ["Bruno", "Carla"];
 const PRODUCT_SPECS: ProductSpec[] = [
@@ -416,7 +417,7 @@ async function collectRunUsers(emails: Set<string>): Promise<{ users: unknown[];
   let cursor: string | null = null;
   let hasNextPage = true;
   let pages = 0;
-  while (hasNextPage) {
+  while (hasNextPage && pages < MAXIMUM_LISTING_PAGES && users.length < emails.size) {
     const variables = { first: USERS_PAGE_SIZE, ordersFirst: ORDERS_PAGE_SIZE, after: cursor };
     const response: GraphqlResponse = await sendGraphqlRequest(
       USERS_WITH_ORDERS_DOCUMENT,
@@ -441,6 +442,11 @@ async function showUsersWithOrders(catalog: DemoCatalog): Promise<void> {
   const emails = new Set(catalog.users.map((user) => user.email));
   const { users, pages } = await collectRunUsers(emails);
   console.log(`Páginas percorridas: ${pages}. Usuários desta execução: ${users.length}.`);
+  if (users.length < emails.size) {
+    console.log(
+      `A varredura parou no limite de ${MAXIMUM_LISTING_PAGES} páginas: ${users.length} de ${emails.size} usuários desta execução foram encontrados.`,
+    );
+  }
   console.log(toPrettyJson({ data: { users } }));
 }
 
