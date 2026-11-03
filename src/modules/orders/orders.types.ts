@@ -5,12 +5,17 @@ import type {
   UserNotFound,
   ValidationFailure,
 } from "../../shared/errors/domain-errors.ts";
+import type { Connection, Edge } from "../../shared/pagination/connection.ts";
 
 export type RequestedItem = { productId: number; quantity: number };
 
 export type LockedProduct = { id: number; priceInCents: number; stock: number };
 
 export type OrderRecord = { id: number; userId: number; totalInCents: number; createdAt: Date };
+
+export type OrderEdgeRecord = Edge<OrderRecord>;
+
+export type OrderConnectionRecord = Connection<OrderRecord>;
 
 export type OrderItemRecord = {
   id: number;

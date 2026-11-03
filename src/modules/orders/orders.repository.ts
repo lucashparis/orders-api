@@ -1,5 +1,6 @@
 import type { Order, OrderItem } from "../../generated/prisma/client.ts";
 import type { DatabaseClient } from "../../shared/database/prisma-client.ts";
+import type { PageRequest } from "../../shared/pagination/page-request.ts";
 import type { LockedProduct, OrderItemRecord, OrderRecord, RequestedItem } from "./orders.types.ts";
 
 export type NewOrder = {
@@ -26,6 +27,24 @@ function toLockedProduct(row: unknown): LockedProduct {
     throw new Error("The product lock query returned a row without integer id, price and stock.");
   }
   return { id: row.id, priceInCents: row.price_cents, stock: row.stock };
+}
+
+function toRecentOrderRecord(row: unknown): OrderRecord {
+  if (
+    !isRecord(row) ||
+    !isInteger(row.id) ||
+    !isInteger(row.user_id) ||
+    !isInteger(row.total_cents) ||
+    !(row.created_at instanceof Date)
+  ) {
+    throw new Error("The recent orders query returned a row without the expected columns.");
+  }
+  return {
+    id: row.id,
+    userId: row.user_id,
+    totalInCents: row.total_cents,
+    createdAt: row.created_at,
+  };
 }
 
 function toOrderRecord(row: Order): OrderRecord {
@@ -103,4 +122,23 @@ export async function findItemsByOrderIds(
     orderBy: { id: "asc" },
   });
   return rows.map(toOrderItemRecord);
+}
+
+export async function findRecentOrdersByUserIds(
+  database: DatabaseClient,
+  userIds: readonly number[],
+  pageRequest: PageRequest,
+): Promise<OrderRecord[]> {
+  const rows = await database.$queryRaw<unknown[]>`
+    SELECT id, user_id, total_cents, created_at
+    FROM (
+      SELECT id, user_id, total_cents, created_at,
+             ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY id DESC) AS position
+      FROM orders
+      WHERE user_id = ANY(${userIds}::int[]) AND (${pageRequest.afterId}::int IS NULL OR id < ${pageRequest.afterId}::int)
+    ) AS ranked
+    WHERE position <= ${pageRequest.pageSize + 1}
+    ORDER BY user_id, id DESC
+  `;
+  return rows.map(toRecentOrderRecord);
 }
