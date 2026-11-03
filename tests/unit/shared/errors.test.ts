@@ -31,7 +31,7 @@ describe("toValidationFailure", () => {
     ]);
   });
 
-  test("keeps the Zod message and the issue order", () => {
+  test("keeps the Zod message as a sentence and the issue order", () => {
     const result = zod
       .object({ name: zod.string(), age: zod.number() })
       .safeParse({ name: 1, age: "x" });
@@ -42,8 +42,23 @@ describe("toValidationFailure", () => {
     expect(failure.kind).toBe("ValidationError");
     expect(failure.fields.map((violation) => violation.field)).toEqual(["name", "age"]);
     expect(failure.fields.map((violation) => violation.message)).toEqual(
-      result.error.issues.map((issue) => issue.message),
+      result.error.issues.map((issue) => `${issue.message}.`),
     );
+  });
+});
+
+describe("toValidationFailure messages", () => {
+  test("ends every message with a single period", () => {
+    const result = zod
+      .object({ name: zod.string().min(1), code: zod.string().refine(() => false, "Must match.") })
+      .safeParse({ name: "", code: "x" });
+    if (result.success) {
+      expect.unreachable();
+    }
+    expect(toValidationFailure(result.error).fields).toEqual([
+      { field: "name", message: "Too small: expected string to have >=1 characters." },
+      { field: "code", message: "Must match." },
+    ]);
   });
 });
 
@@ -90,12 +105,15 @@ describe("domainErrorCodes", () => {
 const payloadCases: { name: string; error: DomainError; payload: ErrorPayload }[] = [
   {
     name: "a validation failure",
-    error: { kind: "ValidationError", fields: [{ field: "email", message: "Invalid email" }] },
+    error: {
+      kind: "ValidationError",
+      fields: [{ field: "email", message: "Invalid email address." }],
+    },
     payload: {
       __typename: "ValidationError",
       code: "BAD_USER_INPUT",
       message: "Invalid input.",
-      fields: [{ field: "email", message: "Invalid email" }],
+      fields: [{ field: "email", message: "Invalid email address." }],
     },
   },
   {

@@ -18,7 +18,7 @@ export const probeModule: GraphqlModule = {
         throw new Error("Syntax Error: fake");
       },
       rejectInput: () => {
-        throw createBadUserInputError("first must be between 1 and 100");
+        throw createBadUserInputError("first must be between 1 and 100.");
       },
       root: () => ({ name: "root" }),
     },

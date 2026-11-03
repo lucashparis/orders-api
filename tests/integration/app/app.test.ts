@@ -149,7 +149,7 @@ describe("error masking", () => {
     const app = await createApp();
     const result = await executeGraphql(app, "{ rejectInput }");
     expect(result.errors[0]?.extensions?.code).toBe("BAD_USER_INPUT");
-    expect(result.errors[0]?.message).toBe("first must be between 1 and 100");
+    expect(result.errors[0]?.message).toBe("first must be between 1 and 100.");
   });
 });
 
