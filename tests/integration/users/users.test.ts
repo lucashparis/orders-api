@@ -16,6 +16,8 @@ const createUserMutation = `
   }
 `;
 
+const nulCharacterMessage = "Must not contain NUL characters.";
+
 const usersQuery = `
   query Users($first: Int, $after: String) {
     users(first: $first, after: $after) {
@@ -88,7 +90,9 @@ describe("createUser", () => {
     expect(created?.message).toBe("Invalid input.");
     expect(created?.fields?.map((entry) => entry.field).sort()).toEqual(["email", "name"]);
   });
+});
 
+describe("createUser length limits", () => {
   test("rejects a name longer than 100 characters", async () => {
     const created = await createUser("a".repeat(101), "long-name@example.com");
     expect(created?.__typename).toBe("ValidationError");
@@ -99,6 +103,18 @@ describe("createUser", () => {
     const created = await createUser("Ana", `${"a".repeat(243)}@example.com`);
     expect(created?.__typename).toBe("ValidationError");
     expect(created?.fields?.map((entry) => entry.field)).toEqual(["email"]);
+  });
+});
+
+describe("createUser NUL characters", () => {
+  test.each([
+    ["name", "Ana\u0000Souza", "ana@example.com"],
+    ["email", "Ana Souza", "ana\u0000@example.com"],
+  ])("rejects a NUL character in the %s", async (field, name, email) => {
+    const created = await createUser(name, email);
+    expect(created).toMatchObject({ __typename: "ValidationError", code: "BAD_USER_INPUT" });
+    expect(created?.fields).toEqual([{ field, message: nulCharacterMessage }]);
+    expect(await prisma.user.count()).toBe(0);
   });
 });
 
@@ -152,7 +168,9 @@ describe("users", () => {
       pageInfo: { hasNextPage: false, endCursor: null },
     });
   });
+});
 
+describe("users pagination arguments", () => {
   test("rejects a page size above the maximum", async () => {
     const result = await executeGraphql(app, usersQuery, { first: 101 });
     expect(result.errors[0]?.extensions?.code).toBe("BAD_USER_INPUT");

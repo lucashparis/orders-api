@@ -1,5 +1,5 @@
 import type { FastifyBaseLogger } from "fastify";
-import type { Prisma, PrismaClient } from "../../generated/prisma/client.ts";
+import { Prisma, type PrismaClient } from "../../generated/prisma/client.ts";
 import {
   type DomainError,
   domainErrorCodes,
@@ -24,10 +24,14 @@ import {
 import { type CreateOrderInput, createOrderInputSchema } from "./orders.schemas.ts";
 import type { CreateOrderOutcome, LockedProduct, OrderRecord } from "./orders.types.ts";
 
-export const orderTransactionOptions = { maxWait: 5_000, timeout: 10_000 };
+export const orderTransactionOptions = {
+  isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+  maxWait: 5_000,
+  timeout: 10_000,
+};
 
 export type OrdersService = {
-  createOrder(input: unknown): Promise<CreateOrderOutcome>;
+  createOrder(input: unknown, logger?: FastifyBaseLogger): Promise<CreateOrderOutcome>;
 };
 
 type OrdersServiceDependencies = { prisma: PrismaClient; logger: FastifyBaseLogger };
@@ -116,9 +120,9 @@ function logCreation(logger: FastifyBaseLogger, order: OrderRecord, itemsCount: 
 }
 
 export function createOrdersService(dependencies: OrdersServiceDependencies): OrdersService {
-  const { prisma, logger } = dependencies;
+  const { prisma } = dependencies;
   return {
-    async createOrder(input) {
+    async createOrder(input, logger = dependencies.logger) {
       const parsed = createOrderInputSchema.safeParse(input);
       if (!parsed.success) {
         const failure = toValidationFailure(parsed.error);

@@ -4,42 +4,12 @@ import { buildApp } from "../../../src/app.ts";
 import type { Environment } from "../../../src/config/env.ts";
 import type { PrismaClient } from "../../../src/generated/prisma/client.ts";
 import { createPrismaClient } from "../../../src/shared/database/prisma-client.ts";
-import { createBadUserInputError } from "../../../src/shared/graphql/bad-user-input.ts";
-import type { GraphqlModule } from "../../../src/shared/graphql/graphql-module.ts";
 import { createTestPrismaClient } from "../../helpers/database.ts";
 import { executeGraphql } from "../../helpers/graphql.ts";
+import { probeModule, secondProbeModule } from "../../helpers/probe-modules.ts";
 import { testEnvironment } from "../../helpers/test-environment.ts";
 
-const probeModule: GraphqlModule = {
-  typeDefs: `
-    extend type Query { failUnexpectedly: String! rejectInput: String! fakeSyntaxError: String! root: ProbeNode! }
-    extend type Mutation { probeMutation: Boolean }
-    type ProbeNode { name: String! child: ProbeNode! }
-  `,
-  resolvers: {
-    Query: {
-      failUnexpectedly: () => {
-        throw new Error("database password leaked");
-      },
-      fakeSyntaxError: () => {
-        throw new Error("Syntax Error: fake");
-      },
-      rejectInput: () => {
-        throw createBadUserInputError("first must be between 1 and 100");
-      },
-      root: () => ({ name: "root" }),
-    },
-    Mutation: { probeMutation: () => true },
-    ProbeNode: { child: () => ({ name: "child" }) },
-  },
-  loaders: {},
-};
-
-const secondProbeModule: GraphqlModule = {
-  typeDefs: "extend type Query { secondRoot: String! }",
-  resolvers: { Query: { secondRoot: () => "second" } },
-  loaders: {},
-};
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const openApps: FastifyInstance[] = [];
 const openClients: PrismaClient[] = [];
@@ -96,9 +66,7 @@ describe("request id", () => {
   test("generates a UUID when no request id is sent", async () => {
     const app = await createApp();
     const result = await executeGraphql(app, "{ secondRoot }");
-    expect(result.headers["x-request-id"]).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-    );
+    expect(result.headers["x-request-id"]).toMatch(uuidPattern);
   });
 
   test("sets the request id header on unknown routes", async () => {
@@ -106,6 +74,28 @@ describe("request id", () => {
     const response = await app.inject({ method: "GET", url: "/does-not-exist" });
     expect(response.statusCode).toBe(404);
     expect(response.headers["x-request-id"]).toBeTypeOf("string");
+  });
+});
+
+describe("request id validation", () => {
+  test("accepts the longest allowed request id", async () => {
+    const app = await createApp();
+    const longestId = `req:${"a".repeat(124)}`;
+    const result = await executeGraphql(app, "{ secondRoot }", undefined, {
+      "x-request-id": longestId,
+    });
+    expect(result.headers["x-request-id"]).toBe(longestId);
+  });
+
+  test.each([
+    ["characters outside the allowed set", "req id<script>"],
+    ["more than 128 characters", "a".repeat(129)],
+  ])("replaces a request id with %s by a UUID", async (_reason, requestId) => {
+    const app = await createApp();
+    const result = await executeGraphql(app, "{ secondRoot }", undefined, {
+      "x-request-id": requestId,
+    });
+    expect(result.headers["x-request-id"]).toMatch(uuidPattern);
   });
 });
 
@@ -154,16 +144,18 @@ describe("error masking", () => {
       extensions: { code: "INTERNAL_SERVER_ERROR", requestId: "req-test-456" },
     });
   });
+});
 
+describe("bad user input", () => {
   test("keeps bad user input errors", async () => {
     const app = await createApp();
     const result = await executeGraphql(app, "{ rejectInput }");
     expect(result.errors[0]?.extensions?.code).toBe("BAD_USER_INPUT");
-    expect(result.errors[0]?.message).toBe("first must be between 1 and 100");
+    expect(result.errors[0]?.message).toBe("first must be between 1 and 100.");
   });
 });
 
-describe("request validation", () => {
+describe("request parsing", () => {
   test("reports syntax errors as parse failures", async () => {
     const app = await createApp();
     const result = await executeGraphql(app, "{ root {");
@@ -178,7 +170,9 @@ describe("request validation", () => {
     expect(result.statusCode).toBe(400);
     expect(result.headers["x-request-id"]).toBe("req-parse-1");
   });
+});
 
+describe("request validation", () => {
   test("reports unknown fields as validation failures", async () => {
     const app = await createApp();
     const result = await executeGraphql(app, "{ unknownField }");

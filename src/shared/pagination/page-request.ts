@@ -11,7 +11,7 @@ function parsePageSize(first: number | null | undefined): number {
     return defaultPageSize;
   }
   if (!Number.isInteger(first) || first < 1 || first > maximumPageSize) {
-    throw createBadUserInputError(`first must be between 1 and ${maximumPageSize}`);
+    throw createBadUserInputError(`first must be between 1 and ${maximumPageSize}.`);
   }
   return first;
 }
@@ -22,7 +22,7 @@ function parseAfterId(after: string | null | undefined): number | null {
   }
   const afterId = decodeCursor(after);
   if (afterId === null) {
-    throw createBadUserInputError("after is not a valid cursor");
+    throw createBadUserInputError("after is not a valid cursor.");
   }
   return afterId;
 }

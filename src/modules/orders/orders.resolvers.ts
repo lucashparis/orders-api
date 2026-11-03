@@ -20,8 +20,8 @@ export function createOrdersModule(dependencies: ModuleDependencies): GraphqlMod
   const service = createOrdersService(dependencies);
   const resolvers = {
     Mutation: {
-      createOrder: async (_parent, args) =>
-        toCreateOrderResult(await service.createOrder(args.input)),
+      createOrder: async (_parent, args, context) =>
+        toCreateOrderResult(await service.createOrder(args.input, context.reply.request.log)),
     },
     Order: {
       createdAt: (order) => order.createdAt.toISOString(),

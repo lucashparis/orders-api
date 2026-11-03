@@ -123,6 +123,15 @@ describe("createProduct validation", () => {
     expect(created?.__typename).toBe("ValidationError");
     expect(created?.fields?.map((entry) => entry.field)).toEqual(["name"]);
   });
+
+  test("rejects a NUL character in the name", async () => {
+    const created = await createProduct("Key\u0000board", 100, 1);
+    expect(created).toMatchObject({ __typename: "ValidationError", code: "BAD_USER_INPUT" });
+    expect(created?.fields).toEqual([
+      { field: "name", message: "Must not contain NUL characters." },
+    ]);
+    expect(await prisma.product.count()).toBe(0);
+  });
 });
 
 describe("products", () => {

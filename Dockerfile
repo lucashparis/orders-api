@@ -15,8 +15,6 @@ FROM base AS runtime
 COPY package.json package-lock.json .npmrc ./
 RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --omit=optional
 COPY --from=verify /app/src ./src
-COPY --from=verify /app/prisma ./prisma
-COPY --from=verify /app/prisma.config.ts ./prisma.config.ts
 ENV NODE_ENV=production
 USER node
 EXPOSE 3000

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { PrismaClient } from "../../generated/prisma/client.ts";
 
-const SHUTDOWN_SIGNALS = ["SIGTERM", "SIGINT"] as const;
+const shutdownSignals = ["SIGTERM", "SIGINT"] as const;
 
 export type GracefulShutdownDependencies = {
   app: { close: () => Promise<unknown>; log: Pick<FastifyInstance["log"], "info" | "error"> };
@@ -30,7 +30,7 @@ export function registerGracefulShutdown(dependencies: GracefulShutdownDependenc
     await closeResources(dependencies);
   };
 
-  for (const signal of SHUTDOWN_SIGNALS) {
+  for (const signal of shutdownSignals) {
     processEvents.once(signal, () => {
       shutdown(signal).catch((error: unknown) => {
         app.log.error({ err: error }, "Graceful shutdown failed");

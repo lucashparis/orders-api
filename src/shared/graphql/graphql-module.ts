@@ -2,6 +2,7 @@ import type { FastifyBaseLogger } from "fastify";
 import type { IResolvers, MercuriusLoaders } from "mercurius";
 import type { Environment } from "../../config/env.ts";
 import type { PrismaClient } from "../../generated/prisma/client.ts";
+import type { LogDestination } from "../logger/logger-options.ts";
 
 export type ModuleDependencies = { prisma: PrismaClient; logger: FastifyBaseLogger };
 
@@ -15,4 +16,5 @@ export type BuildAppOptions = {
   environment: Environment;
   prisma: PrismaClient;
   createGraphqlModules: (dependencies: ModuleDependencies) => GraphqlModule[];
+  logDestination?: LogDestination;
 };

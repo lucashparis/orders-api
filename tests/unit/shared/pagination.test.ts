@@ -72,6 +72,11 @@ describe("parsePageRequest", () => {
     expect(() => parsePageRequest({ after: "garbage" })).toThrow(badUserInput);
   });
 
+  test("explains each rejection in a sentence", () => {
+    expect(() => parsePageRequest({ first: 0 })).toThrow("first must be between 1 and 100.");
+    expect(() => parsePageRequest({ after: "garbage" })).toThrow("after is not a valid cursor.");
+  });
+
   test("decodes a valid after cursor", () => {
     expect(parsePageRequest({ first: 5, after: encodeCursor(7) })).toEqual({
       pageSize: 5,

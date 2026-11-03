@@ -42,7 +42,7 @@ Comportamentos verificados pela suíte de testes e pela demonstração:
 - 50 pedidos simultâneos de um produto com estoque 10 resultam em exatamente 10 pedidos aceitos, 40 `InsufficientStockError` e estoque final 0.
 - Pedidos cruzados (A→B e B→A) em paralelo terminam sem deadlock.
 - A listagem `users → orders → items → product` executa exatamente 4 consultas, independentemente da quantidade de registros.
-- 173 testes automatizados.
+- 203 testes automatizados.
 
 ## Requisitos
 
@@ -96,6 +96,8 @@ Portas do host configuráveis por variáveis de ambiente (ou por um arquivo `.en
 API_HOST_PORT=3100 DB_HOST_PORT=5440 docker compose up -d --build
 ```
 
+As portas de `db` e `db-test` são publicadas apenas em `127.0.0.1`, porque os bancos usam credenciais fixas de desenvolvimento; só a API fica acessível em todas as interfaces do host.
+
 Ao alterar `API_HOST_PORT`, os endereços com `localhost:3000` usados nesta documentação e nos exemplos passam a usar a nova porta.
 
 Se `DB_HOST_PORT` ou `DB_TEST_HOST_PORT` forem alteradas e a aplicação for executada localmente, `DATABASE_URL` no `.env` deve usar a mesma porta de `DB_HOST_PORT`, e `TEST_DATABASE_URL` deve ser exportada no shell com a porta de `DB_TEST_HOST_PORT` (veja [Como executar localmente](#como-executar-localmente)). Dentro da rede do Compose os serviços sempre usam a porta 5432 do contêiner, então os serviços `api`, `migrate`, `demo` e `test` não são afetados.
@@ -118,7 +120,7 @@ docker compose --profile tools down -v
 | `test` | etapa `verify` | `npm test` contra `db-test` (perfil `tools`) |
 | `demo` | etapa `verify` | `npm run demo` contra `http://api:3000/graphql` (perfil `tools`) |
 
-O Dockerfile tem quatro etapas sobre `node:24.22.2-alpine3.24`: `base` (com `openssl`, exigido pelo Prisma), `deps` (`npm ci`), `verify` (gera o cliente Prisma e os tipos GraphQL e roda `tsc --noEmit`; a imagem não é construída se os tipos não batem) e `runtime` (apenas dependências de produção, `src/` e `prisma/`, executando como usuário `node`). A imagem de runtime tem cerca de 413 MB.
+O Dockerfile tem quatro etapas sobre `node:24.22.2-alpine3.24`: `base` (com `openssl`, exigido pelo Prisma), `deps` (`npm ci`), `verify` (gera o cliente Prisma e os tipos GraphQL e roda `tsc --noEmit`; a imagem não é construída se os tipos não batem) e `runtime` (apenas dependências de produção e `src/`, incluindo o cliente Prisma e os tipos GraphQL gerados em `src/generated/`, executando como usuário `node`). A imagem de runtime não contém a CLI do Prisma, `prisma/` nem `prisma.config.ts`: as migrations são aplicadas pelo serviço `migrate`, a partir da etapa `verify`. A imagem de runtime tem cerca de 413 MB.
 
 ## Como executar localmente
 
@@ -141,7 +143,7 @@ npm test
 
 `npm test` usa o banco `db-test` (porta 5433 por padrão). O `globalSetup` aplica as migrations nesse banco, e os arquivos de integração rodam em sequência.
 
-O `.env` é lido apenas por `npm run dev` (`node --env-file-if-exists=.env`) e pelos comandos do Prisma (`npm run generate`, `npm run db:migrate`), cujo `prisma.config.ts` usa `process.loadEnvFile`; não há dependência extra para isso. `npm test` e `npm run check` não leem o `.env`: para apontar os testes para outra porta, exporte `TEST_DATABASE_URL` no shell antes de executá-los, por exemplo `TEST_DATABASE_URL=postgresql://orders:orders@localhost:5440/orders_test npm test`.
+O `.env` é lido por `npm run dev` (`node --env-file-if-exists=.env`) e pelos comandos do Prisma (`npm run generate`, `npm run db:migrate` e as migrations aplicadas pelo `globalSetup` dos testes), cujo `prisma.config.ts` usa `process.loadEnvFile`; não há dependência extra para isso. Os testes não tomam `TEST_DATABASE_URL` do `.env`: para apontá-los para outra porta, exporte `TEST_DATABASE_URL` no shell antes de executar `npm test` ou `npm run check`, por exemplo `TEST_DATABASE_URL=postgresql://orders:orders@localhost:5440/orders_test npm test`.
 
 ### Variáveis de ambiente
 
@@ -438,7 +440,7 @@ Os pedidos de cada usuário vêm do mais recente para o mais antigo. Os cursores
 curl http://localhost:3000/health
 ```
 
-Retorna `200 {"status":"ok"}` quando o processo está vivo e o banco responde a `SELECT 1`, e `503` caso contrário.
+Retorna `200 {"status":"ok"}` quando o processo está vivo e o banco responde a `SELECT 1`, e `503` caso contrário. As sondagens não geram log; quando o banco não responde, o próprio health check registra um aviso (`warn`, evento `health.database_unreachable`).
 
 ## Decisões técnicas
 
@@ -487,9 +489,17 @@ Qualquer erro esperado dos passos 2 a 5 encerra a transação sem nenhuma escrit
 ### Observabilidade
 
 - Logs JSON do Pino (com `pino-pretty` apenas em desenvolvimento).
-- `x-request-id` é reaproveitado quando recebido, gerado quando ausente e devolvido na resposta; é o `requestId` dos erros mascarados.
-- Variáveis GraphQL nunca são registradas, pois podem conter dados pessoais.
-- Eventos de negócio: `order.created` (`orderId`, `userId`, `itemsCount`, `totalInCents`) e `order.rejected` (`code`).
+- `x-request-id` é reaproveitado quando recebido e válido (`^[A-Za-z0-9._:-]{1,128}$`), gerado (UUID) quando ausente ou inválido e devolvido na resposta; é o `reqId` de todas as linhas de log da requisição e o `requestId` dos erros mascarados.
+- Uma linha `graphql.operation` por requisição GraphQL, com o nome da operação (`anonymous` quando a operação não tem nome; `null` quando a requisição é rejeitada antes da execução), a duração em milissegundos e o resultado: `success`, `business_error` (resultado cujo `__typename` termina em `Error`), `request_error` (sintaxe, validação ou `BAD_USER_INPUT`) ou `internal_error` (erro mascarado).
+
+  ```json
+  {"level":30,"reqId":"a59c5a22-fb14-4d7f-a161-7fff41fac12c","event":"graphql.operation","operation":"CreateOrder","durationMs":12,"outcome":"success","msg":"GraphQL operation completed"}
+  ```
+
+- Variáveis GraphQL e o texto da query nunca são registrados, pois podem conter dados pessoais. As requisições aparecem no log apenas com método e caminho, sem a query string (em `GET /graphql` a query viaja na URL).
+- Erros inesperados são registrados uma única vez, no nível `error`, com o erro original, o `requestId` e o caminho do campo. Erros esperados (sintaxe, validação e `BAD_USER_INPUT`) não são registrados como erro.
+- Eventos de negócio: `order.created` (`orderId`, `userId`, `itemsCount`, `totalInCents`) e `order.rejected` (`code`), ambos com o `reqId` da requisição que emitiu o pedido.
+- As sondagens de `/health` não geram log; um banco inacessível no health check é registrado como `warn`.
 - Desligamento seguro: em `SIGTERM`/`SIGINT`, o servidor conclui as requisições em andamento e depois desconecta o banco.
 
 ## Trade-offs
@@ -527,5 +537,4 @@ Qualquer erro esperado dos passos 2 a 5 encerra a transação sem nenhuma escrit
   | Compatibilidade | Novo campo (por exemplo, `totalAmountInCents`) e o antigo marcado com `@deprecated`, sem versionar a URL |
 
 - **Consulta por usuário.** Uma query `user(id)` tornaria o cursor de `User.orders` independente de outros usuários na mesma página.
-- **Observabilidade.** Incluir o identificador da requisição nos eventos de negócio (`order.created`, `order.rejected`) e silenciar os logs das sondagens de `/health`.
 - **Itens fora do escopo.** Os recursos listados como fora do escopo em [Limites conhecidos](#limites-conhecidos) são os candidatos seguintes.
