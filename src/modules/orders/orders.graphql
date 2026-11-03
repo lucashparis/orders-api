@@ -1,0 +1,197 @@
+"""
+A purchase placed by a user, with every price captured at the moment of purchase.
+"""
+type Order {
+  """
+  Unique identifier of the order.
+  """
+  id: ID!
+
+  """
+  Sum of quantity times unit price over every item, in cents.
+  """
+  totalInCents: Int!
+
+  """
+  Moment the order was placed, as an ISO 8601 string in UTC.
+  """
+  createdAt: String!
+
+  """
+  Items of the order, in the sequence they were requested.
+  """
+  items: [OrderItem!]!
+}
+
+"""
+A product line of an order.
+"""
+type OrderItem {
+  """
+  The product that was ordered, with its current data.
+  """
+  product: Product!
+
+  """
+  Units of the product that were ordered.
+  """
+  quantity: Int!
+
+  """
+  Unit price in cents charged when the order was placed. Later price changes do not affect it.
+  """
+  unitPriceInCents: Int!
+}
+
+"""
+Returned when the referenced user does not exist.
+"""
+type UserNotFoundError implements Error {
+  """
+  Stable machine-readable identifier of the error.
+  """
+  code: ErrorCode!
+
+  """
+  Human-readable explanation of the error.
+  """
+  message: String!
+
+  """
+  Identifier of the user that was not found.
+  """
+  userId: ID!
+}
+
+"""
+Returned when one or more referenced products do not exist.
+"""
+type ProductNotFoundError implements Error {
+  """
+  Stable machine-readable identifier of the error.
+  """
+  code: ErrorCode!
+
+  """
+  Human-readable explanation of the error.
+  """
+  message: String!
+
+  """
+  Identifiers of every product that was not found, in ascending order.
+  """
+  productIds: [ID!]!
+}
+
+"""
+A requested quantity that is above the units available for a product.
+"""
+type StockShortage {
+  """
+  Identifier of the product without enough stock.
+  """
+  productId: ID!
+
+  """
+  Units requested in the order.
+  """
+  requested: Int!
+
+  """
+  Units available when the order was evaluated.
+  """
+  available: Int!
+}
+
+"""
+Returned when one or more products do not have enough stock for the order.
+"""
+type InsufficientStockError implements Error {
+  """
+  Stable machine-readable identifier of the error.
+  """
+  code: ErrorCode!
+
+  """
+  Human-readable explanation of the error.
+  """
+  message: String!
+
+  """
+  Every item without enough stock, ordered by product identifier.
+  """
+  items: [StockShortage!]!
+}
+
+"""
+Returned when the order total is above the maximum allowed amount.
+"""
+type OrderTotalLimitExceededError implements Error {
+  """
+  Stable machine-readable identifier of the error.
+  """
+  code: ErrorCode!
+
+  """
+  Human-readable explanation of the error.
+  """
+  message: String!
+
+  """
+  Maximum order total accepted, in cents.
+  """
+  limitInCents: Int!
+}
+
+"""
+A product and the quantity requested in an order.
+"""
+input OrderItemInput {
+  """
+  Identifier of the product to order. Each product may appear only once per order.
+  """
+  productId: ID!
+
+  """
+  Units to order, one or greater.
+  """
+  quantity: Int!
+}
+
+"""
+Data required to place an order.
+"""
+input CreateOrderInput {
+  """
+  Identifier of the user placing the order.
+  """
+  userId: ID!
+
+  """
+  Products and quantities to order, between 1 and 100 items.
+  """
+  items: [OrderItemInput!]!
+}
+
+"""
+Outcome of placing an order.
+"""
+union CreateOrderResult =
+  | Order
+  | ValidationError
+  | UserNotFoundError
+  | ProductNotFoundError
+  | InsufficientStockError
+  | OrderTotalLimitExceededError
+
+extend type Mutation {
+  """
+  Places an order, reserving stock and capturing the current unit prices in a single transaction.
+  """
+  createOrder(
+    """
+    Data of the order to place.
+    """
+    input: CreateOrderInput!
+  ): CreateOrderResult!
+}

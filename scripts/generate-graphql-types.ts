@@ -11,6 +11,7 @@ const outputDirectory = new URL("../src/generated/", import.meta.url);
 const outputFile = new URL("graphql.ts", outputDirectory);
 const usersTypesPath = "../modules/users/users.types.ts";
 const productsTypesPath = "../modules/products/products.types.ts";
+const ordersTypesPath = "../modules/orders/orders.types.ts";
 
 const codegenConfig = {
   useTypeImports: true,
@@ -24,6 +25,8 @@ const codegenConfig = {
     Product: `${productsTypesPath}#ProductRecord`,
     ProductEdge: `${productsTypesPath}#ProductEdgeRecord`,
     ProductConnection: `${productsTypesPath}#ProductConnectionRecord`,
+    Order: `${ordersTypesPath}#OrderRecord`,
+    OrderItem: `${ordersTypesPath}#OrderItemRecord`,
   },
 };
 
