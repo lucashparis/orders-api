@@ -321,7 +321,7 @@ Uma linha por produto concentra a disputa ("linha quente"): pedidos simultâneos
 
 ### 6.4 Limite do total e evolução
 
-O limite de 2.147.483.647 centavos (R$ 21.474.836,47) por valor é uma regra explícita do contrato: o pedido acima dele recebe `OrderTotalLimitExceededError` antes de qualquer escrita. O schema relacional de partida (`DECIMAL(10,2)`) tinha um limite equivalente em R$ 99.999.999,99, sem tratamento, e resultaria em `numeric field overflow` exposto como erro interno.
+O limite de 2.147.483.647 centavos (R$ 21.474.836,47) por valor é uma regra explícita do contrato: o pedido acima dele recebe `OrderTotalLimitExceededError` antes de qualquer escrita, em vez de um estouro numérico no banco exposto como erro interno.
 
 Evolução, se o negócio exigir valores maiores:
 
@@ -500,7 +500,7 @@ Seções: visão geral, como executar (Docker e local), comandos (`demo`, `test`
 
 ## 17. Fluxo de implementação
 
-Cada etapa é uma branch, com merge `--no-ff` na `main` quando funcional. Durante a etapa rodam os testes relacionados; no fechamento, `npm run check` completo e um resumo com a justificativa de cada módulo, para aprovação antes do merge. O Opus coordena e revisa; cada tarefa é executada pelo modelo indicado.
+Cada etapa é uma branch, com merge `--no-ff` na `main` quando funcional. Durante a etapa rodam os testes relacionados; no fechamento, `npm run check` completo e aprovação antes do merge. O Opus coordena e revisa; cada tarefa é executada pelo modelo indicado.
 
 | # | Branch | Conteúdo | Modelo |
 |---|---|---|---|

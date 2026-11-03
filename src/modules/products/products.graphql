@@ -1,0 +1,113 @@
+"""
+An item that can be ordered.
+"""
+type Product {
+  """
+  Unique identifier of the product.
+  """
+  id: ID!
+
+  """
+  Display name of the product.
+  """
+  name: String!
+
+  """
+  Unit price in cents.
+  """
+  priceInCents: Int!
+
+  """
+  Units currently available for ordering.
+  """
+  stock: Int!
+
+  """
+  Moment the product was created, as an ISO 8601 string in UTC.
+  """
+  createdAt: String!
+}
+
+"""
+A product together with its position in a connection.
+"""
+type ProductEdge {
+  """
+  Opaque cursor pointing at this product.
+  """
+  cursor: String!
+
+  """
+  The product at this position.
+  """
+  node: Product!
+}
+
+"""
+A page of products.
+"""
+type ProductConnection {
+  """
+  Products of the current page, ordered by creation.
+  """
+  edges: [ProductEdge!]!
+
+  """
+  Pagination state after the current page.
+  """
+  pageInfo: PageInfo!
+}
+
+"""
+Data required to create a product.
+"""
+input CreateProductInput {
+  """
+  Display name, between 1 and 100 characters after trimming. Names may repeat.
+  """
+  name: String!
+
+  """
+  Unit price in cents, zero or greater.
+  """
+  priceInCents: Int!
+
+  """
+  Initial units in stock, zero or greater.
+  """
+  stock: Int!
+}
+
+"""
+Outcome of creating a product.
+"""
+union CreateProductResult = Product | ValidationError
+
+extend type Query {
+  """
+  Lists products ordered by creation, using cursor-based pagination.
+  """
+  products(
+    """
+    Maximum number of products to return, between 1 and 100.
+    """
+    first: Int = 20
+
+    """
+    Cursor of the last product of the previous page.
+    """
+    after: String
+  ): ProductConnection!
+}
+
+extend type Mutation {
+  """
+  Creates a product.
+  """
+  createProduct(
+    """
+    Data of the product to create.
+    """
+    input: CreateProductInput!
+  ): CreateProductResult!
+}

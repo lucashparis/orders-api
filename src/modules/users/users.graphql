@@ -1,0 +1,123 @@
+"""
+A person who can place orders.
+"""
+type User {
+  """
+  Unique identifier of the user.
+  """
+  id: ID!
+
+  """
+  Display name of the user.
+  """
+  name: String!
+
+  """
+  Normalized lowercase email, unique across users.
+  """
+  email: String!
+
+  """
+  Moment the user was created, as an ISO 8601 string in UTC.
+  """
+  createdAt: String!
+}
+
+"""
+A user together with its position in a connection.
+"""
+type UserEdge {
+  """
+  Opaque cursor pointing at this user.
+  """
+  cursor: String!
+
+  """
+  The user at this position.
+  """
+  node: User!
+}
+
+"""
+A page of users.
+"""
+type UserConnection {
+  """
+  Users of the current page, ordered by creation.
+  """
+  edges: [UserEdge!]!
+
+  """
+  Pagination state after the current page.
+  """
+  pageInfo: PageInfo!
+}
+
+"""
+Data required to create a user.
+"""
+input CreateUserInput {
+  """
+  Display name, between 1 and 100 characters after trimming.
+  """
+  name: String!
+
+  """
+  Email address, at most 254 characters. It is trimmed and lowercased before storing.
+  """
+  email: String!
+}
+
+"""
+Returned when the email already belongs to another user.
+"""
+type EmailAlreadyInUseError implements Error {
+  """
+  Stable machine-readable identifier of the error.
+  """
+  code: ErrorCode!
+
+  """
+  Human-readable explanation of the error.
+  """
+  message: String!
+
+  """
+  The normalized email that is already taken.
+  """
+  email: String!
+}
+
+"""
+Outcome of creating a user.
+"""
+union CreateUserResult = User | ValidationError | EmailAlreadyInUseError
+
+extend type Query {
+  """
+  Lists users ordered by creation, using cursor-based pagination.
+  """
+  users(
+    """
+    Maximum number of users to return, between 1 and 100.
+    """
+    first: Int = 20
+
+    """
+    Cursor of the last user of the previous page.
+    """
+    after: String
+  ): UserConnection!
+}
+
+extend type Mutation {
+  """
+  Creates a user with a unique email.
+  """
+  createUser(
+    """
+    Data of the user to create.
+    """
+    input: CreateUserInput!
+  ): CreateUserResult!
+}
