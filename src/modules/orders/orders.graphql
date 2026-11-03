@@ -44,6 +44,53 @@ type OrderItem {
 }
 
 """
+An order together with its position in a connection.
+"""
+type OrderEdge {
+  """
+  Opaque cursor pointing at this order.
+  """
+  cursor: String!
+
+  """
+  The order at this position.
+  """
+  node: Order!
+}
+
+"""
+A page of orders.
+"""
+type OrderConnection {
+  """
+  Orders of the current page, newest first.
+  """
+  edges: [OrderEdge!]!
+
+  """
+  Pagination state after the current page.
+  """
+  pageInfo: PageInfo!
+}
+
+extend type User {
+  """
+  Orders placed by the user, newest first, using cursor-based pagination.
+  """
+  orders(
+    """
+    Maximum number of orders to return, between 1 and 100.
+    """
+    first: Int = 20
+
+    """
+    Cursor of the last order of the previous page. Only older orders are returned.
+    """
+    after: String
+  ): OrderConnection!
+}
+
+"""
 Returned when the referenced user does not exist.
 """
 type UserNotFoundError implements Error {

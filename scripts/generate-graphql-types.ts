@@ -27,6 +27,8 @@ const codegenConfig = {
     ProductConnection: `${productsTypesPath}#ProductConnectionRecord`,
     Order: `${ordersTypesPath}#OrderRecord`,
     OrderItem: `${ordersTypesPath}#OrderItemRecord`,
+    OrderEdge: `${ordersTypesPath}#OrderEdgeRecord`,
+    OrderConnection: `${ordersTypesPath}#OrderConnectionRecord`,
   },
 };
 
