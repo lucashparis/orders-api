@@ -9,11 +9,13 @@ import {
   type ValidationFailure,
 } from "../errors/domain-errors.ts";
 
-type PayloadOf<Error extends DomainError> = Omit<Error, "kind"> & {
-  __typename: Error["kind"];
-  code: (typeof domainErrorCodes)[Error["kind"]];
-  message: string;
-};
+type PayloadOf<Error extends DomainError> = Error extends DomainError
+  ? Omit<Error, "kind"> & {
+      __typename: Error["kind"];
+      code: (typeof domainErrorCodes)[Error["kind"]];
+      message: string;
+    }
+  : never;
 
 export type ErrorPayload =
   | PayloadOf<ValidationFailure>
@@ -40,6 +42,7 @@ function payloadHeader<Kind extends DomainError["kind"]>(kind: Kind) {
   };
 }
 
+export function toErrorPayload<Error extends DomainError>(error: Error): PayloadOf<Error>;
 export function toErrorPayload(error: DomainError): ErrorPayload {
   switch (error.kind) {
     case "ValidationError":
