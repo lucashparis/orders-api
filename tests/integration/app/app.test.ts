@@ -9,6 +9,8 @@ import { executeGraphql } from "../../helpers/graphql.ts";
 import { probeModule, secondProbeModule } from "../../helpers/probe-modules.ts";
 import { testEnvironment } from "../../helpers/test-environment.ts";
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 const openApps: FastifyInstance[] = [];
 const openClients: PrismaClient[] = [];
 
@@ -64,9 +66,7 @@ describe("request id", () => {
   test("generates a UUID when no request id is sent", async () => {
     const app = await createApp();
     const result = await executeGraphql(app, "{ secondRoot }");
-    expect(result.headers["x-request-id"]).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-    );
+    expect(result.headers["x-request-id"]).toMatch(uuidPattern);
   });
 
   test("sets the request id header on unknown routes", async () => {
@@ -74,6 +74,28 @@ describe("request id", () => {
     const response = await app.inject({ method: "GET", url: "/does-not-exist" });
     expect(response.statusCode).toBe(404);
     expect(response.headers["x-request-id"]).toBeTypeOf("string");
+  });
+});
+
+describe("request id validation", () => {
+  test("accepts the longest allowed request id", async () => {
+    const app = await createApp();
+    const longestId = `req:${"a".repeat(124)}`;
+    const result = await executeGraphql(app, "{ secondRoot }", undefined, {
+      "x-request-id": longestId,
+    });
+    expect(result.headers["x-request-id"]).toBe(longestId);
+  });
+
+  test.each([
+    ["characters outside the allowed set", "req id<script>"],
+    ["more than 128 characters", "a".repeat(129)],
+  ])("replaces a request id with %s by a UUID", async (_reason, requestId) => {
+    const app = await createApp();
+    const result = await executeGraphql(app, "{ secondRoot }", undefined, {
+      "x-request-id": requestId,
+    });
+    expect(result.headers["x-request-id"]).toMatch(uuidPattern);
   });
 });
 

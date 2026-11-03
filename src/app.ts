@@ -6,11 +6,7 @@ import type { BuildAppOptions } from "./shared/graphql/graphql-module.ts";
 import { mergeLoaders, mergeResolvers } from "./shared/graphql/merge-modules.ts";
 import { registerOperationLog } from "./shared/graphql/operation-log.ts";
 import { registerHealthRoute } from "./shared/http/health-route.ts";
-import {
-  generateRequestId,
-  registerRequestIdEcho,
-  requestIdHeaderName,
-} from "./shared/http/request-id.ts";
+import { registerRequestIdEcho, resolveRequestId } from "./shared/http/request-id.ts";
 import { buildLoggerOptions } from "./shared/logger/logger-options.ts";
 
 const maximumQueryDepth = 10;
@@ -19,8 +15,8 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   const { environment, prisma, createGraphqlModules } = options;
   const app = Fastify({
     logger: buildLoggerOptions(environment, options.logDestination),
-    requestIdHeader: requestIdHeaderName,
-    genReqId: generateRequestId,
+    requestIdHeader: false,
+    genReqId: resolveRequestId,
   });
   registerRequestIdEcho(app);
   registerHealthRoute(app, prisma);
