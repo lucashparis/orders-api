@@ -31,6 +31,9 @@ const MAXIMUM_AMOUNT_IN_CENTS = 2_147_483_647;
 const MISSING_ID = "2147483000";
 const CONCURRENT_ORDERS = 50;
 const LIMITED_STOCK = 10;
+const USERS_PAGE_SIZE = 100;
+const ORDERS_PAGE_SIZE = 3;
+const CURRENCY_FORMATTER = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const USER_NAMES = ["Bruno", "Carla"];
 const PRODUCT_SPECS: ProductSpec[] = [
   { name: "Teclado mecânico", priceInCents: 35000, stock: 100 },
@@ -80,14 +83,14 @@ const PRODUCTS_PAGE_DOCUMENT = `query ProductsPage($after: String) {
   }
 }`;
 
-const USERS_WITH_ORDERS_DOCUMENT = `query UsersWithOrders {
-  users(first: 5) {
+const USERS_WITH_ORDERS_DOCUMENT = `query UsersWithOrders($first: Int!, $after: String, $ordersFirst: Int!) {
+  users(first: $first, after: $after) {
     edges {
       node {
         id
         name
         email
-        orders(first: 3) {
+        orders(first: $ordersFirst) {
           edges {
             node {
               id
@@ -138,7 +141,7 @@ function toPrettyJson(value: unknown): string {
 }
 
 function formatCents(cents: number): string {
-  return `R$ ${(cents / 100).toFixed(2).replace(".", ",")}`;
+  return CURRENCY_FORMATTER.format(cents / 100);
 }
 
 function buildRunSuffix(): string {
@@ -399,14 +402,46 @@ async function showErrorCatalog(catalog: DemoCatalog): Promise<void> {
   }
 }
 
-async function showUsersWithOrders(): Promise<void> {
+function pickRunUsers(page: unknown, emails: Set<string>): unknown[] {
+  const edges = readField(page, "edges");
+  if (!Array.isArray(edges)) {
+    throw new DemoError("Resposta inesperada da API: a página de usuários não tem edges.");
+  }
+  const nodes = edges.map((edge) => readField(edge, "node"));
+  return nodes.filter((node) => emails.has(readText(node, "email")));
+}
+
+async function collectRunUsers(emails: Set<string>): Promise<{ users: unknown[]; pages: number }> {
+  const users: unknown[] = [];
+  let cursor: string | null = null;
+  let hasNextPage = true;
+  let pages = 0;
+  while (hasNextPage) {
+    const variables = { first: USERS_PAGE_SIZE, ordersFirst: ORDERS_PAGE_SIZE, after: cursor };
+    const response: GraphqlResponse = await sendGraphqlRequest(
+      USERS_WITH_ORDERS_DOCUMENT,
+      variables,
+    );
+    const page = readField(response.data, "users");
+    users.push(...pickRunUsers(page, emails));
+    const pageInfo = readField(page, "pageInfo");
+    hasNextPage = readField(pageInfo, "hasNextPage") === true;
+    cursor = hasNextPage ? readText(pageInfo, "endCursor") : null;
+    pages += 1;
+  }
+  return { users, pages };
+}
+
+async function showUsersWithOrders(catalog: DemoCatalog): Promise<void> {
   console.log("\n=== 4. Listagem: usuários, pedidos, itens e produtos ===");
   console.log(
-    "A listagem é paginada: 5 usuários por página e 3 pedidos por usuário. Para a próxima página, envie pageInfo.endCursor no argumento after.",
+    `A listagem é paginada: ${USERS_PAGE_SIZE} usuários por página e ${ORDERS_PAGE_SIZE} pedidos por usuário. A demonstração percorre as páginas com pageInfo.endCursor (argumento after) até a última e mostra abaixo apenas os usuários criados nesta execução, com seus pedidos, itens e produtos.`,
   );
   console.log(USERS_WITH_ORDERS_DOCUMENT);
-  const response = await sendGraphqlRequest(USERS_WITH_ORDERS_DOCUMENT, {});
-  console.log(toPrettyJson(response));
+  const emails = new Set(catalog.users.map((user) => user.email));
+  const { users, pages } = await collectRunUsers(emails);
+  console.log(`Páginas percorridas: ${pages}. Usuários desta execução: ${users.length}.`);
+  console.log(toPrettyJson({ data: { users } }));
 }
 
 async function runDemo(): Promise<void> {
@@ -414,7 +449,7 @@ async function runDemo(): Promise<void> {
   const catalog = await seedDemoCatalog();
   await runConcurrencyScenario(catalog);
   await showErrorCatalog(catalog);
-  await showUsersWithOrders();
+  await showUsersWithOrders(catalog);
 }
 
 function reportFailure(error: unknown): void {
