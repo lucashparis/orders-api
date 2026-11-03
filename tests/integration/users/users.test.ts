@@ -16,6 +16,8 @@ const createUserMutation = `
   }
 `;
 
+const nulCharacterMessage = "Must not contain NUL characters.";
+
 const usersQuery = `
   query Users($first: Int, $after: String) {
     users(first: $first, after: $after) {
@@ -99,6 +101,18 @@ describe("createUser", () => {
     const created = await createUser("Ana", `${"a".repeat(243)}@example.com`);
     expect(created?.__typename).toBe("ValidationError");
     expect(created?.fields?.map((entry) => entry.field)).toEqual(["email"]);
+  });
+});
+
+describe("createUser NUL characters", () => {
+  test.each([
+    ["name", "Ana\u0000Souza", "ana@example.com"],
+    ["email", "Ana Souza", "ana\u0000@example.com"],
+  ])("rejects a NUL character in the %s", async (field, name, email) => {
+    const created = await createUser(name, email);
+    expect(created).toMatchObject({ __typename: "ValidationError", code: "BAD_USER_INPUT" });
+    expect(created?.fields).toEqual([{ field, message: nulCharacterMessage }]);
+    expect(await prisma.user.count()).toBe(0);
   });
 });
 

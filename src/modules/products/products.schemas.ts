@@ -1,9 +1,15 @@
 import { z as zod } from "zod";
+import { hasNoNulCharacter, nulCharacterMessage } from "../../shared/validation/text.ts";
 
 const maximumNameLength = 100;
 
 export const createProductInputSchema = zod.object({
-  name: zod.string().trim().min(1).max(maximumNameLength),
+  name: zod
+    .string()
+    .trim()
+    .min(1)
+    .max(maximumNameLength)
+    .refine(hasNoNulCharacter, nulCharacterMessage),
   priceInCents: zod.number().int().min(0),
   stock: zod.number().int().min(0),
 });
