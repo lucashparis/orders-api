@@ -4,6 +4,7 @@ import { baseTypeDefs } from "./shared/graphql/base-type-defs.ts";
 import { formatGraphqlErrors } from "./shared/graphql/error-formatter.ts";
 import type { BuildAppOptions } from "./shared/graphql/graphql-module.ts";
 import { mergeLoaders, mergeResolvers } from "./shared/graphql/merge-modules.ts";
+import { registerOperationLog } from "./shared/graphql/operation-log.ts";
 import { registerHealthRoute } from "./shared/http/health-route.ts";
 import {
   generateRequestId,
@@ -17,7 +18,7 @@ const maximumQueryDepth = 10;
 export async function buildApp(options: BuildAppOptions): Promise<FastifyInstance> {
   const { environment, prisma, createGraphqlModules } = options;
   const app = Fastify({
-    logger: buildLoggerOptions(environment),
+    logger: buildLoggerOptions(environment, options.logDestination),
     requestIdHeader: requestIdHeaderName,
     genReqId: generateRequestId,
   });
@@ -32,5 +33,6 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
     queryDepth: maximumQueryDepth,
     errorFormatter: formatGraphqlErrors,
   });
+  registerOperationLog(app);
   return app;
 }

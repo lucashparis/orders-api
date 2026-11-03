@@ -4,42 +4,10 @@ import { buildApp } from "../../../src/app.ts";
 import type { Environment } from "../../../src/config/env.ts";
 import type { PrismaClient } from "../../../src/generated/prisma/client.ts";
 import { createPrismaClient } from "../../../src/shared/database/prisma-client.ts";
-import { createBadUserInputError } from "../../../src/shared/graphql/bad-user-input.ts";
-import type { GraphqlModule } from "../../../src/shared/graphql/graphql-module.ts";
 import { createTestPrismaClient } from "../../helpers/database.ts";
 import { executeGraphql } from "../../helpers/graphql.ts";
+import { probeModule, secondProbeModule } from "../../helpers/probe-modules.ts";
 import { testEnvironment } from "../../helpers/test-environment.ts";
-
-const probeModule: GraphqlModule = {
-  typeDefs: `
-    extend type Query { failUnexpectedly: String! rejectInput: String! fakeSyntaxError: String! root: ProbeNode! }
-    extend type Mutation { probeMutation: Boolean }
-    type ProbeNode { name: String! child: ProbeNode! }
-  `,
-  resolvers: {
-    Query: {
-      failUnexpectedly: () => {
-        throw new Error("database password leaked");
-      },
-      fakeSyntaxError: () => {
-        throw new Error("Syntax Error: fake");
-      },
-      rejectInput: () => {
-        throw createBadUserInputError("first must be between 1 and 100");
-      },
-      root: () => ({ name: "root" }),
-    },
-    Mutation: { probeMutation: () => true },
-    ProbeNode: { child: () => ({ name: "child" }) },
-  },
-  loaders: {},
-};
-
-const secondProbeModule: GraphqlModule = {
-  typeDefs: "extend type Query { secondRoot: String! }",
-  resolvers: { Query: { secondRoot: () => "second" } },
-  loaders: {},
-};
 
 const openApps: FastifyInstance[] = [];
 const openClients: PrismaClient[] = [];
