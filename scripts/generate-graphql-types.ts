@@ -10,6 +10,7 @@ import { baseTypeDefs } from "../src/shared/graphql/base-type-defs.ts";
 const outputDirectory = new URL("../src/generated/", import.meta.url);
 const outputFile = new URL("graphql.ts", outputDirectory);
 const usersTypesPath = "../modules/users/users.types.ts";
+const productsTypesPath = "../modules/products/products.types.ts";
 
 const codegenConfig = {
   useTypeImports: true,
@@ -20,6 +21,9 @@ const codegenConfig = {
     User: `${usersTypesPath}#UserRecord`,
     UserEdge: `${usersTypesPath}#UserEdgeRecord`,
     UserConnection: `${usersTypesPath}#UserConnectionRecord`,
+    Product: `${productsTypesPath}#ProductRecord`,
+    ProductEdge: `${productsTypesPath}#ProductEdgeRecord`,
+    ProductConnection: `${productsTypesPath}#ProductConnectionRecord`,
   },
 };
 
