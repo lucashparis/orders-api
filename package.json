@@ -16,7 +16,7 @@
     "test:coverage": "vitest run --coverage",
     "db:migrate": "prisma migrate deploy",
     "demo": "node scripts/demo.ts",
-    "check": "npm run generate && npm run typecheck && npm run lint && npm run check:comments && npm audit && npm test"
+    "check": "npm run generate && npm run typecheck && npm run lint && npm run check:comments && npm audit && npm run test:coverage"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.1",
