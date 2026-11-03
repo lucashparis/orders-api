@@ -4,7 +4,7 @@ WORKDIR /app
 
 FROM base AS deps
 COPY package.json package-lock.json .npmrc ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 FROM deps AS verify
 COPY . .
@@ -13,7 +13,7 @@ RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npm run generate 
 
 FROM base AS runtime
 COPY package.json package-lock.json .npmrc ./
-RUN npm ci --omit=dev
+RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --omit=optional
 COPY --from=verify /app/src ./src
 COPY --from=verify /app/prisma ./prisma
 COPY --from=verify /app/prisma.config.ts ./prisma.config.ts
