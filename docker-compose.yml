@@ -1,3 +1,9 @@
+x-verify-build: &verify-build
+  context: .
+  target: verify
+
+x-database-url: &database-url postgresql://orders:orders@db:5432/orders
+
 services:
   db:
     image: postgres:18.6-alpine
@@ -15,6 +21,42 @@ services:
       timeout: 3s
       retries: 30
 
+  migrate:
+    build: *verify-build
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: *database-url
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      target: runtime
+    init: true
+    ports:
+      - "${API_HOST_PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: *database-url
+      PORT: "3000"
+      HOST: 0.0.0.0
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      GRAPHIQL_ENABLED: ${GRAPHIQL_ENABLED:-true}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3000/health').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
   db-test:
     image: postgres:18.6-alpine
     profiles: ["tools"]
@@ -31,6 +73,26 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+
+  test:
+    build: *verify-build
+    profiles: ["tools"]
+    command: ["npm", "test"]
+    environment:
+      TEST_DATABASE_URL: postgresql://orders:orders@db-test:5432/orders_test
+    depends_on:
+      db-test:
+        condition: service_healthy
+
+  demo:
+    build: *verify-build
+    profiles: ["tools"]
+    command: ["npm", "run", "demo"]
+    environment:
+      API_URL: http://api:3000/graphql
+    depends_on:
+      api:
+        condition: service_healthy
 
 volumes:
   orders-data:

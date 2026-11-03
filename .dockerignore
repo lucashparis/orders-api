@@ -1,0 +1,14 @@
+*
+!src
+src/generated
+!prisma
+!scripts
+!tests
+!lint-rules
+!package.json
+!package-lock.json
+!.npmrc
+!tsconfig.json
+!biome.json
+!prisma.config.ts
+!vitest.config.ts
