@@ -1,0 +1,109 @@
+"""
+Entry point for every read operation. Each module contributes its own fields.
+"""
+type Query
+
+"""
+Entry point for every write operation. Each module contributes its own fields.
+"""
+type Mutation
+
+"""
+Contract shared by every business error returned as part of a mutation result.
+"""
+interface Error {
+  """
+  Stable machine-readable identifier of the error.
+  """
+  code: ErrorCode!
+
+  """
+  Human-readable explanation of the error.
+  """
+  message: String!
+}
+
+"""
+Stable identifiers of the business errors the API can return.
+"""
+enum ErrorCode {
+  """
+  The input failed validation.
+  """
+  BAD_USER_INPUT
+
+  """
+  Another user already uses the given email.
+  """
+  EMAIL_ALREADY_IN_USE
+
+  """
+  The referenced user does not exist.
+  """
+  USER_NOT_FOUND
+
+  """
+  One or more referenced products do not exist.
+  """
+  PRODUCT_NOT_FOUND
+
+  """
+  One or more products do not have enough stock.
+  """
+  INSUFFICIENT_STOCK
+
+  """
+  The order total is above the maximum allowed amount.
+  """
+  ORDER_TOTAL_LIMIT_EXCEEDED
+}
+
+"""
+A validation problem tied to a single input field.
+"""
+type FieldError {
+  """
+  Path of the offending input field.
+  """
+  field: String!
+
+  """
+  Explanation of what is wrong with the field.
+  """
+  message: String!
+}
+
+"""
+Returned when the input fails validation.
+"""
+type ValidationError implements Error {
+  """
+  Stable machine-readable identifier of the error.
+  """
+  code: ErrorCode!
+
+  """
+  Human-readable explanation of the error.
+  """
+  message: String!
+
+  """
+  Every field that failed validation.
+  """
+  fields: [FieldError!]!
+}
+
+"""
+Pagination state of a cursor-based connection.
+"""
+type PageInfo {
+  """
+  Whether more items exist after the last returned edge.
+  """
+  hasNextPage: Boolean!
+
+  """
+  Cursor of the last returned edge, or null when the page is empty.
+  """
+  endCursor: String
+}
