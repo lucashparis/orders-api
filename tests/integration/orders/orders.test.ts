@@ -174,7 +174,9 @@ describe("createOrder", () => {
     ]);
     expect(await readStocks([keyboardId, mouseId])).toEqual([3, 2]);
   });
+});
 
+describe("createOrder item sequence", () => {
   test("keeps the requested item sequence when product ids are not ascending", async () => {
     const userId = await createUserFixture();
     const cableId = await createProductFixture("Cable", 300, 4);
@@ -319,7 +321,7 @@ describe("createOrder total boundary", () => {
   });
 });
 
-describe("createOrder logging", () => {
+describe("createOrder created event", () => {
   test("logs the created order without the raw input", async () => {
     const userId = await createUserFixture();
     const keyboardId = await createProductFixture("Keyboard", 1990, 5);
@@ -339,7 +341,9 @@ describe("createOrder logging", () => {
     ]);
     expect(lines.join("")).not.toContain("quantity");
   });
+});
 
+describe("createOrder rejected event", () => {
   test("logs the code of a rejected order", async () => {
     const lines = await captureLogLines(async (logger) => {
       const service = createOrdersService({ prisma, logger });

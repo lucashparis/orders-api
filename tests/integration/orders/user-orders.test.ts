@@ -159,7 +159,9 @@ describe("User.orders first page", () => {
     expect(readOrderIds(brunoOrders)).toEqual([String(scenario.brunoOrderId)]);
     expect(brunoOrders.pageInfo.hasNextPage).toBe(false);
   });
+});
 
+describe("User.orders edges", () => {
   test("returns the total and cursor of each order", async () => {
     const scenario = await createScenario();
     const result = await listUsersWithOrders({ first: 1 });
@@ -230,7 +232,9 @@ describe("User.orders loader", () => {
       [scenario.brunoOrderId],
     ]);
   });
+});
 
+describe("User.orders loader argument groups", () => {
   test("runs one query per distinct pair of arguments and keeps the order of the queries", async () => {
     const scenario = await createScenario();
     const spy = vitestUtilities.spyOn(prisma, "$queryRaw");

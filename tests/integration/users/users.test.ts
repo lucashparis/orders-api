@@ -90,7 +90,9 @@ describe("createUser", () => {
     expect(created?.message).toBe("Invalid input.");
     expect(created?.fields?.map((entry) => entry.field).sort()).toEqual(["email", "name"]);
   });
+});
 
+describe("createUser length limits", () => {
   test("rejects a name longer than 100 characters", async () => {
     const created = await createUser("a".repeat(101), "long-name@example.com");
     expect(created?.__typename).toBe("ValidationError");
@@ -166,7 +168,9 @@ describe("users", () => {
       pageInfo: { hasNextPage: false, endCursor: null },
     });
   });
+});
 
+describe("users pagination arguments", () => {
   test("rejects a page size above the maximum", async () => {
     const result = await executeGraphql(app, usersQuery, { first: 101 });
     expect(result.errors[0]?.extensions?.code).toBe("BAD_USER_INPUT");

@@ -144,7 +144,9 @@ describe("error masking", () => {
       extensions: { code: "INTERNAL_SERVER_ERROR", requestId: "req-test-456" },
     });
   });
+});
 
+describe("bad user input", () => {
   test("keeps bad user input errors", async () => {
     const app = await createApp();
     const result = await executeGraphql(app, "{ rejectInput }");
@@ -153,7 +155,7 @@ describe("error masking", () => {
   });
 });
 
-describe("request validation", () => {
+describe("request parsing", () => {
   test("reports syntax errors as parse failures", async () => {
     const app = await createApp();
     const result = await executeGraphql(app, "{ root {");
@@ -168,7 +170,9 @@ describe("request validation", () => {
     expect(result.statusCode).toBe(400);
     expect(result.headers["x-request-id"]).toBe("req-parse-1");
   });
+});
 
+describe("request validation", () => {
   test("reports unknown fields as validation failures", async () => {
     const app = await createApp();
     const result = await executeGraphql(app, "{ unknownField }");
